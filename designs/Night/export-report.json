@@ -1,0 +1,13 @@
+{
+  "format": "pi-clock-design-v1",
+  "generated_at": "2026-07-14T02:38:52.528Z",
+  "video": {
+    "codec": "avc1.42001f",
+    "width": 480,
+    "height": 480,
+    "duration": 8,
+    "fps": 15,
+    "frameCount": 120,
+    "byteLength": 419831
+  }
+}

@@ -7,25 +7,29 @@
       "color": "#f4efe1",
       "width": 14,
       "length": 0.5,
-      "glow": true
+      "glow": true,
+      "shape": "spindle"
     },
     "minute": {
       "color": "#f4efe1",
       "width": 9,
       "length": 0.82,
-      "glow": true
+      "glow": true,
+      "shape": "spindle"
     },
     "second": {
-      "color": "#d9a24a",
+      "color": "#ffb70f",
       "width": 3,
       "length": 0.9,
-      "glow": true
+      "glow": true,
+      "visible": true
     }
   },
   "dial": {
     "markings": "numerals",
     "color": "#f6f2e8",
-    "count": 12
+    "count": 12,
+    "diameter": 440
   },
   "pendulum": {
     "period_s": 1.15,
@@ -34,11 +38,16 @@
       0.5,
       0.04
     ],
-    "rod_length": 0.9
+    "rod_length": 0.74
+  },
+  "bottom": {
+    "backdrop": "loop",
+    "color": "#050914",
+    "diameter": 300
   },
   "ambiance": {
     "day_night": false,
-    "twinkle": false,
+    "twinkle": true,
     "glow": true
   }
 }

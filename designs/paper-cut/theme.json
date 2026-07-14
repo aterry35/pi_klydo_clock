@@ -1,5 +1,5 @@
 {
-  "name": "Paper Bloom",
+  "name": "Paper Cut",
   "accent": "#e8492a",
   "background": "#0d0d0d",
   "hands": {
@@ -20,7 +20,7 @@
     "second": {
       "color": "#faf6ee",
       "width": 2,
-      "length": 0.8,
+      "length": 0.85,
       "glow": false,
       "visible": false
     }
@@ -28,7 +28,8 @@
   "dial": {
     "markings": "none",
     "color": "#ffffff",
-    "count": 12
+    "count": 12,
+    "diameter": 440
   },
   "pendulum": {
     "period_s": 1.7,
@@ -41,7 +42,8 @@
   },
   "bottom": {
     "backdrop": "solid",
-    "color": "#000000"
+    "color": "#000000",
+    "diameter": 300
   },
   "ambiance": {
     "day_night": false,

@@ -28,7 +28,8 @@
   "dial": {
     "markings": "none",
     "color": "#ffffff",
-    "count": 12
+    "count": 12,
+    "diameter": 440
   },
   "pendulum": {
     "period_s": 1.6,
@@ -38,6 +39,11 @@
       0.035
     ],
     "rod_length": 0.74
+  },
+  "bottom": {
+    "backdrop": "loop",
+    "color": "#050505",
+    "diameter": 300
   },
   "ambiance": {
     "day_night": false,

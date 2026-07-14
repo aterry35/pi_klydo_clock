@@ -20,7 +20,7 @@
     "second": {
       "color": "#f5f5f0",
       "width": 2,
-      "length": 0.82,
+      "length": 0.85,
       "glow": false,
       "visible": false
     }
@@ -28,7 +28,8 @@
   "dial": {
     "markings": "none",
     "color": "#ffffff",
-    "count": 12
+    "count": 12,
+    "diameter": 440
   },
   "pendulum": {
     "period_s": 1.6,
@@ -41,7 +42,8 @@
   },
   "bottom": {
     "backdrop": "solid",
-    "color": "#000000"
+    "color": "#000000",
+    "diameter": 300
   },
   "ambiance": {
     "day_night": false,

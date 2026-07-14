@@ -4,7 +4,7 @@ An offline-first animated art clock for a Raspberry Pi 3 and a portrait 7-inch
 DSI display. The repository contains both the native clock renderer and a browser
 designer that exports installable clock-face packages.
 
-![Kitchen Pop, Night, Paper Bloom, and Vintage Film clock designs](docs/images/design-gallery.png)
+![Kitchen Pop, Night, Paper Cut, and Vintage Film clock designs](docs/images/design-gallery.png)
 
 ## Highlights
 
