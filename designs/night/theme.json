@@ -1,0 +1,44 @@
+{
+  "name": "Night",
+  "accent": "#d9a24a",
+  "background": "#050914",
+  "hands": {
+    "hour": {
+      "color": "#f4efe1",
+      "width": 14,
+      "length": 0.5,
+      "glow": true
+    },
+    "minute": {
+      "color": "#f4efe1",
+      "width": 9,
+      "length": 0.82,
+      "glow": true
+    },
+    "second": {
+      "color": "#d9a24a",
+      "width": 3,
+      "length": 0.9,
+      "glow": true
+    }
+  },
+  "dial": {
+    "markings": "numerals",
+    "color": "#f6f2e8",
+    "count": 12
+  },
+  "pendulum": {
+    "period_s": 1.15,
+    "amplitude_deg": 11,
+    "pivot": [
+      0.5,
+      0.04
+    ],
+    "rod_length": 0.9
+  },
+  "ambiance": {
+    "day_night": false,
+    "twinkle": false,
+    "glow": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "layout": {
+    "dial": {
+      "center": [224, 260]
+    },
+    "pendulum": {
+      "center": [210, 650]
+    }
+  }
+}

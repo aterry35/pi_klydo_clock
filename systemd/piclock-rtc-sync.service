@@ -1,0 +1,12 @@
+[Unit]
+Description=Write NTP-synced time back to the DS3231 RTC
+# Only meaningful once time has (or may have) synchronised over the network.
+After=time-sync.target network-online.target
+Wants=time-sync.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/piclock/scripts/rtc_ntp_sync.sh
+
+[Install]
+WantedBy=multi-user.target

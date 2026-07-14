@@ -1,0 +1,51 @@
+{
+  "name": "Paper Bloom",
+  "accent": "#e8492a",
+  "background": "#0d0d0d",
+  "hands": {
+    "hour": {
+      "color": "#e8492a",
+      "width": 12,
+      "length": 0.4,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "minute": {
+      "color": "#e8492a",
+      "width": 9,
+      "length": 0.62,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "second": {
+      "color": "#faf6ee",
+      "width": 2,
+      "length": 0.8,
+      "glow": false,
+      "visible": false
+    }
+  },
+  "dial": {
+    "markings": "none",
+    "color": "#ffffff",
+    "count": 12
+  },
+  "pendulum": {
+    "period_s": 1.7,
+    "amplitude_deg": 8,
+    "pivot": [
+      0.5,
+      0.035
+    ],
+    "rod_length": 0.74
+  },
+  "bottom": {
+    "backdrop": "solid",
+    "color": "#000000"
+  },
+  "ambiance": {
+    "day_night": false,
+    "twinkle": false,
+    "glow": false
+  }
+}

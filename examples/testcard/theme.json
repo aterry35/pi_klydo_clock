@@ -1,0 +1,44 @@
+{
+  "name": "Test Card",
+  "accent": "#d9a24a",
+  "background": "#050505",
+  "hands": {
+    "hour": {
+      "color": "#f0c070",
+      "width": 12,
+      "length": 0.52,
+      "glow": true
+    },
+    "minute": {
+      "color": "#f7e1d3",
+      "width": 7,
+      "length": 0.78,
+      "glow": true
+    },
+    "second": {
+      "color": "#e0564a",
+      "width": 3,
+      "length": 0.9,
+      "glow": true
+    }
+  },
+  "dial": {
+    "markings": "ticks",
+    "color": "#ffffff",
+    "count": 12
+  },
+  "pendulum": {
+    "period_s": 2.0,
+    "amplitude_deg": 13,
+    "pivot": [
+      0.5,
+      0.05
+    ],
+    "rod_length": 0.82
+  },
+  "ambiance": {
+    "day_night": true,
+    "twinkle": true,
+    "glow": true
+  }
+}

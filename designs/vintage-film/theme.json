@@ -1,0 +1,51 @@
+{
+  "name": "Vintage Film",
+  "accent": "#f5f5f0",
+  "background": "#151513",
+  "hands": {
+    "hour": {
+      "color": "#f5f5f0",
+      "width": 10,
+      "length": 0.42,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "minute": {
+      "color": "#f5f5f0",
+      "width": 7,
+      "length": 0.66,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "second": {
+      "color": "#f5f5f0",
+      "width": 2,
+      "length": 0.82,
+      "glow": false,
+      "visible": false
+    }
+  },
+  "dial": {
+    "markings": "none",
+    "color": "#ffffff",
+    "count": 12
+  },
+  "pendulum": {
+    "period_s": 1.6,
+    "amplitude_deg": 9,
+    "pivot": [
+      0.5,
+      0.035
+    ],
+    "rod_length": 0.74
+  },
+  "bottom": {
+    "backdrop": "solid",
+    "color": "#000000"
+  },
+  "ambiance": {
+    "day_night": false,
+    "twinkle": false,
+    "glow": false
+  }
+}

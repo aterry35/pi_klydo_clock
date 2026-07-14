@@ -1,0 +1,47 @@
+{
+  "name": "Kitchen Pop",
+  "accent": "#ffb70f",
+  "background": "#050505",
+  "hands": {
+    "hour": {
+      "color": "#063d3a",
+      "width": 11,
+      "length": 0.42,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "minute": {
+      "color": "#063d3a",
+      "width": 9,
+      "length": 0.66,
+      "glow": false,
+      "shape": "rounded"
+    },
+    "second": {
+      "color": "#ffb70f",
+      "width": 2,
+      "length": 0.85,
+      "glow": false,
+      "visible": false
+    }
+  },
+  "dial": {
+    "markings": "none",
+    "color": "#ffffff",
+    "count": 12
+  },
+  "pendulum": {
+    "period_s": 1.6,
+    "amplitude_deg": 9,
+    "pivot": [
+      0.5,
+      0.035
+    ],
+    "rod_length": 0.74
+  },
+  "ambiance": {
+    "day_night": false,
+    "twinkle": false,
+    "glow": false
+  }
+}

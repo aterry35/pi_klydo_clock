@@ -1,0 +1,41 @@
+Pi Klydo Clock — kernel cmdline notes
+=====================================
+
+/boot/firmware/cmdline.txt is a SINGLE space-separated line. install.sh does NOT
+edit it automatically (a broken cmdline can make the Pi unbootable) — apply these
+tokens by hand.
+
+1) PORTRAIT DISPLAY ROTATION (framebuffer-level, zero per-frame cost — preferred)
+--------------------------------------------------------------------------------
+Add ONE video= token matching your DSI connector:
+
+    video=DSI-1:800x480@60,rotate=90        # portrait; try rotate=270 to flip 180°
+
+Find the connector name (DSI-1 / DSI-2) with:
+
+    for s in /sys/class/drm/*/status; do echo "$s -> $(cat "$s")"; done
+
+If you instead rotate in-app, pass `--rotate 90` to the renderer and leave video=
+un-rotated. (KMS rotation is preferred — the in-app path costs a per-frame blit.)
+
+2) FAST, QUIET BOOT
+-------------------
+Add these tokens to the same line:
+
+    quiet loglevel=1 logo.nologo vt.global_cursor_default=0 plymouth.enable=0 fastboot
+
+  quiet / loglevel=1        suppress kernel console spam
+  logo.nologo               no framebuffer raspberry logo
+  vt.global_cursor_default=0  no blinking console cursor behind the app
+  plymouth.enable=0         no plymouth splash
+  fastboot                  skip fsck on a clean filesystem
+
+3) TOUCH ROTATION IS SEPARATE
+-----------------------------
+Rotating the display does NOT rotate the touch matrix. Handle touch independently
+(see README "Portrait rotation"): either a libinput calibration matrix, or pass
+`--touch-rotate 90` to the renderer.
+
+Example full line (yours will differ — edit, do not paste blindly):
+
+    console=serial0,115200 console=tty1 root=PARTUUID=xxxx-02 rootfstype=ext4 fsck.repair=yes rootwait video=DSI-1:800x480@60,rotate=90 quiet loglevel=1 logo.nologo vt.global_cursor_default=0 plymouth.enable=0 fastboot

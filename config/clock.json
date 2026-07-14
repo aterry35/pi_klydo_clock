@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "display": {
+    "mode": "kms",
+    "width": 480,
+    "height": 800,
+    "fps": 30,
+    "rotate": 90,
+    "touch_rotate": 90,
+    "circle_y_scale": 0.925
+  },
+  "layout": {
+    "fixture_border_px": 0,
+    "dial": {
+      "center": [224, 260],
+      "default_diameter": 400,
+      "minimum_diameter": 400,
+      "maximum_diameter": 500
+    },
+    "pendulum": {
+      "center": [210, 650],
+      "default_diameter": 300,
+      "minimum_diameter": 260,
+      "maximum_diameter": 340
+    }
+  },
+  "designs": {
+    "system_directory": "/opt/piclock/designs",
+    "user_directories": [
+      "/boot/firmware/piclock-designs",
+      "/boot/piclock-designs",
+      "~/piclock-designs"
+    ],
+    "state_path": "/var/lib/piclock/state.json",
+    "startup_mode": "daily",
+    "assets": {
+      "dial_canvas": [480, 480],
+      "pendulum_canvas": [300, 400],
+      "video_min_fps": 10,
+      "video_preferred_fps": 15,
+      "video_max_fps": 30,
+      "video_min_duration_s": 2,
+      "video_preferred_duration_s": [4, 10],
+      "video_max_duration_s": 12
+    }
+  },
+  "enclosure": {
+    "panel_mm": [102, 165],
+    "dial_aperture": {
+      "left_mm": 14.9954,
+      "top_mm": 16.4983,
+      "diameter_mm": 76
+    },
+    "pendulum_aperture": {
+      "left_mm": 29.0742,
+      "top_mm": 107.4681,
+      "diameter_mm": 48.5
+    }
+  }
+}

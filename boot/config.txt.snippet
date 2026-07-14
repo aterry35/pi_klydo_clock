@@ -1,0 +1,32 @@
+# ============================================================
+#  Pi Klydo Clock — append to /boot/firmware/config.txt
+#  (older Raspberry Pi OS: /boot/config.txt)
+#  install.sh appends this block automatically (idempotent).
+# ============================================================
+# --- Pi Klydo Clock BEGIN ---
+
+# Full KMS graphics: required for the SDL kmsdrm backend and the DSI panel.
+# `nohdmi` disables the HDMI outputs entirely — we use DSI, so this removes all
+# HDMI hotplug/EDID probing from boot.
+dtoverlay=vc4-kms-v3d,nohdmi
+max_framebuffers=2
+
+# Hosyond 7" DSI panel (official-7"-touchscreen compatible). Modern Raspberry Pi
+# OS auto-detects the official panel; if your panel stays dark, uncomment:
+# dtoverlay=vc4-kms-dsi-7inch
+
+# DS3231 RTC on I2C — the PRIMARY time source (correct with no network).
+# Registers as /dev/rtc0; the kernel seeds the system clock from it at boot.
+dtparam=i2c_arm=on
+dtoverlay=i2c-rtc,ds3231
+
+# Boot-time tuning.
+disable_splash=1        # no rainbow splash
+disable_overscan=1
+boot_delay=0            # no artificial firmware delay
+
+# NOTE: portrait rotation for full-KMS is set on the KERNEL CMDLINE, not here.
+# display_rotate / display_lcd_rotate are legacy (fkms) and IGNORED by vc4-kms-v3d.
+# See boot/cmdline.txt.notes.
+
+# --- Pi Klydo Clock END ---

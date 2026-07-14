@@ -1,0 +1,5 @@
+pygame-ce>=2.4
+av>=11.0
+Pillow>=10.0
+numpy>=1.26
+cairosvg>=2.7

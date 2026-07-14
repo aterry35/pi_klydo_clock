@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+node_modules/
+dist/
+*.zip
+*.heic
+.piclock-state.json
