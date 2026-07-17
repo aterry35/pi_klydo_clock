@@ -44,6 +44,7 @@ UI_CONFIGURATION.md     design-folder schema, controls, AI design contract
 COMMUNITY_DESIGNS.md    SD-card/SCP copy workflow + artist package contract
 config/clock.json       shared device geometry, folders, and design limits
 docs/images/            renderer-generated design screenshots for documentation
+3d_enclosure/*.stl      printable frame, faceplate, and rear enclosure meshes
 Tools/clock-design-creator-app/app/
                         Browser editor for building validated design ZIPs
 CLAUDE_DESIGN_APP_PROMPT.md prompt for building a design creator app
@@ -65,6 +66,31 @@ On the Pi, community/user designs are also scanned at startup from:
 /boot/firmware/piclock-designs/
 /boot/piclock-designs/
 ~/piclock-designs/
+```
+
+---
+
+## 3D-printable enclosure
+
+![Clock frame, faceplate, and rear enclosure STL previews](docs/images/enclosure-gallery.png)
+
+The [`3d_enclosure/`](3d_enclosure/) directory contains the three closed, manifold
+binary STL meshes used for the clock enclosure. Import them into the slicer at 100%
+scale and interpret the unitless STL coordinates as millimetres.
+
+| File | Part | Mesh bounding box |
+| --- | --- | --- |
+| [`clock_frame.stl`](3d_enclosure/clock_frame.stl) | Outer frame and surround | 122.0 x 186.0 x 51.0 mm |
+| [`clock_face.stl`](3d_enclosure/clock_face.stl) | Front insert with dial and pendulum openings | 110.34 x 173.216 x 17.0 mm |
+| [`clock_back.stl`](3d_enclosure/clock_back.stl) | Rear enclosure shell | 110.0 x 173.0 x 35.0 mm |
+
+The dimensions above are axis-aligned mesh bounds, not recommended print
+orientation. Confirm display fit, connector clearance, shrinkage, and printer
+tolerances before a production print. Regenerate the documentation renders after
+changing an STL with:
+
+```bash
+./.venv/bin/python scripts/render_stl_previews.py
 ```
 
 ---
