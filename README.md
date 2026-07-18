@@ -115,9 +115,23 @@ A 480×800 window opens with the sample design. **Controls:** click/tap the top 
 
 ## Run the design creator
 
-The public production designer is available at
-<https://designer.18-191-209-51.sslip.io>. Local editing and ZIP export do not
-require an account. Submitting to the Community page requires an artist account.
+The public community site is available at
+<https://designer.18-191-209-51.sslip.io>. It is a community-led, open-source,
+non-commercial project: the service does not currently charge artists, sell
+submitted designs, or run advertising. Project contact:
+<agnel.terry@gmail.com>.
+
+Public routes:
+
+- `/` — project invitation, featured designs, and artist/maker entry points
+- `/artists` — browser designer, attribution, licensing, and review guide
+- `/designer` — the production clock-face creator
+- `/community` — approved designs, likes, comments, reports, and downloads
+- `/build` — Raspberry Pi, display, enclosure, installation, and recovery guide
+- `/admin` — private review and moderation dashboard
+
+Local editing and ZIP export do not require an account. Submitting to the
+Community page requires an artist account.
 New packages remain private until an administrator reviews and approves them;
 approved packages, previews, likes, and comments are stored by the community API.
 

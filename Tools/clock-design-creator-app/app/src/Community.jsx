@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  CircleGauge, Download, Flag, Heart, LogIn, LogOut, MessageCircle, Search,
+  CircleGauge, Download, Flag, Heart, House, LogIn, LogOut, MessageCircle, Search,
   UserRound, X,
 } from 'lucide-react';
 import { apiRequest } from './api.js';
@@ -106,13 +106,15 @@ function ReportDialog({ open, design, busy, error, onClose, onSubmit }) {
   );
 }
 
-function CommunityHeader({ session, onCreate, onAdmin, onAuth, onLogout }) {
+function CommunityHeader({ session, onHome, onCreate, onBuild, onAdmin, onAuth, onLogout }) {
   return (
     <header className="community-topbar">
-      <div className="brand"><CircleGauge size={22} /><strong>Clock Design Creator</strong></div>
+      <button className="brand brand-button" type="button" title="Pi Klydo Clock home" onClick={onHome}><CircleGauge size={22} /><strong>Pi Klydo Clock</strong></button>
       <nav className="page-switch" aria-label="Application pages">
+        <button type="button" title="Home" onClick={onHome}><House size={14} /></button>
         <button type="button" onClick={onCreate}>Designer</button>
         <button type="button" className="active">Community</button>
+        <button type="button" onClick={onBuild}>Build</button>
         {session.user?.role === 'admin' && <button type="button" onClick={onAdmin}>Admin</button>}
       </nav>
       <div className="topbar-spacer" />
@@ -194,7 +196,7 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
   );
 }
 
-export function CommunityPage({ session, notice, onDismissNotice, onCreate, onAdmin, onAuth, onLogout }) {
+export function CommunityPage({ session, notice, onDismissNotice, onHome, onCreate, onBuild, onAdmin, onAuth, onLogout }) {
   const [designs, setDesigns] = useState([]);
   const [sort, setSort] = useState('new');
   const [query, setQuery] = useState('');
@@ -224,7 +226,7 @@ export function CommunityPage({ session, notice, onDismissNotice, onCreate, onAd
 
   return (
     <main className="community-shell">
-      <CommunityHeader session={session} onCreate={onCreate} onAdmin={onAdmin} onAuth={onAuth} onLogout={onLogout} />
+      <CommunityHeader session={session} onHome={onHome} onCreate={onCreate} onBuild={onBuild} onAdmin={onAdmin} onAuth={onAuth} onLogout={onLogout} />
       <section className="gallery-toolbar">
         <div><h1>Community clock designs</h1><p>Browse artist-made packages validated for the Pi Klydo Clock.</p></div>
         <label className="gallery-search"><Search size={16} /><input aria-label="Search designs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or artist" /></label>

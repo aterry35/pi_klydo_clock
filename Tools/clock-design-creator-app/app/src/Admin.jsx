@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Check, CircleGauge, ClipboardCheck, Download, Eye, EyeOff, Flag, History,
-  LogOut, RefreshCw, RotateCcw, ShieldCheck, UserCheck, UserRound, UserX, X,
+  House, LogOut, RefreshCw, RotateCcw, ShieldCheck, UserCheck, UserRound, UserX, X,
 } from 'lucide-react';
 import { apiRequest } from './api.js';
 
@@ -32,13 +32,15 @@ function ActionDialog({ action, busy, error, onClose, onConfirm }) {
   );
 }
 
-function AdminHeader({ session, onCreate, onCommunity, onLogout }) {
+function AdminHeader({ session, onHome, onCreate, onCommunity, onBuild, onLogout }) {
   return (
     <header className="community-topbar">
-      <div className="brand"><CircleGauge size={22} /><strong>Clock Design Creator</strong></div>
+      <button className="brand brand-button" type="button" title="Pi Klydo Clock home" onClick={onHome}><CircleGauge size={22} /><strong>Pi Klydo Clock</strong></button>
       <nav className="page-switch" aria-label="Application pages">
+        <button type="button" title="Home" onClick={onHome}><House size={14} /></button>
         <button type="button" onClick={onCreate}>Designer</button>
         <button type="button" onClick={onCommunity}>Community</button>
+        <button type="button" onClick={onBuild}>Build</button>
         <button type="button" className="active">Admin</button>
       </nav>
       <div className="topbar-spacer" />
@@ -48,7 +50,7 @@ function AdminHeader({ session, onCreate, onCommunity, onLogout }) {
   );
 }
 
-export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
+export function AdminPage({ session, onHome, onCreate, onCommunity, onBuild, onLogout }) {
   const [tab, setTab] = useState('review');
   const [data, setData] = useState({ summary: null, reports: [], designs: [], users: [], actions: [] });
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
 
   return (
     <main className="community-shell admin-shell">
-      <AdminHeader session={session} onCreate={onCreate} onCommunity={onCommunity} onLogout={onLogout} />
+      <AdminHeader session={session} onHome={onHome} onCreate={onCreate} onCommunity={onCommunity} onBuild={onBuild} onLogout={onLogout} />
       <section className="admin-heading">
         <div><h1>Community administration</h1><p>Signed in as {session.user.artistName}</p></div>
         <button className="secondary-button" type="button" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} />Refresh</button>

@@ -4,6 +4,10 @@ The production designer is served by Caddy at:
 
 <https://designer.18-191-209-51.sslip.io>
 
+The root serves the public landing page. Clean SPA paths include `/artists`,
+`/designer`, `/community`, `/build`, and `/admin`; Caddy's `try_files` fallback
+routes direct requests for each page to the Vite application.
+
 The hostname uses `sslip.io` DNS to resolve to the EC2 public IP. Caddy obtains and
 renews the TLS certificate automatically. Ports 80 and 443 must be allowed by the
 instance's EC2 security group.

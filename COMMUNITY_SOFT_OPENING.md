@@ -4,6 +4,10 @@ The first public release uses the existing EC2 instance and designer hostname:
 
 <https://designer.18-191-209-51.sslip.io>
 
+The root URL is the public project landing page. The designer is at `/designer`,
+the community gallery is at `/community`, the artist guide is at `/artists`, the
+DIY Raspberry Pi guide is at `/build`, and administration is at `/admin`.
+
 It is intentionally a low-cost validation release. The browser designer remains
 usable without an account. The Community page adds public browsing and downloads,
 while registration is required for design submission, likes, and comments.

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check, CircleGauge, Download, Eye, EyeOff, FileImage, Film, Layers3,
-  LoaderCircle, LogIn, LogOut, Pause, Play, Settings2, SlidersHorizontal,
+  House, LoaderCircle, LogIn, LogOut, Pause, Play, Settings2, SlidersHorizontal,
   Sparkles, Upload, UploadCloud, UserRound,
 } from 'lucide-react';
 import { AdminPage } from './Admin.jsx';
@@ -15,6 +15,8 @@ import {
 } from './clockConfig.js';
 import { downloadBlob, setNestedValue, slugify } from './utils.js';
 import { summarizeValidation, validateProject } from './validation.js';
+import { ArtistsPage, BuildPage, LandingPage } from './SitePages.jsx';
+import { navigateToView, viewFromLocation } from './routes.js';
 
 const SECTIONS = [
   ['setup', Settings2, 'Setup'],
@@ -128,10 +130,7 @@ function FileButton({ accept, onChange, icon: Icon = Upload, children }) {
 }
 
 export default function App() {
-  const [view, setView] = useState(() => (
-    window.location.hash === '#admin' ? 'admin'
-      : window.location.hash === '#community' ? 'community' : 'designer'
-  ));
+  const [view, setView] = useState(() => viewFromLocation());
   const [session, setSession] = useState({ user: null, csrfToken: null, loading: true });
   const [authOpen, setAuthOpen] = useState(false);
   const [publishAfterAuth, setPublishAfterAuth] = useState(false);
@@ -176,18 +175,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => setView(
-      window.location.hash === '#admin' ? 'admin'
-        : window.location.hash === '#community' ? 'community' : 'designer',
-    );
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const onLocationChange = () => setView(viewFromLocation());
+    window.addEventListener('hashchange', onLocationChange);
+    window.addEventListener('popstate', onLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', onLocationChange);
+      window.removeEventListener('popstate', onLocationChange);
+    };
   }, []);
 
   useEffect(() => {
     if (!session.loading && view === 'admin' && session.user?.role !== 'admin') {
-      setView('community');
-      window.location.hash = 'community';
+      navigateToView('community', { replace: true });
     }
   }, [session.loading, session.user?.role, view]);
 
@@ -457,8 +456,7 @@ export default function App() {
   };
 
   const changeView = (nextView) => {
-    setView(nextView);
-    window.location.hash = nextView;
+    navigateToView(nextView);
   };
 
   const handleAuthenticated = (payload) => {
@@ -523,6 +521,10 @@ export default function App() {
     }
   };
 
+  if (view === 'home') return <LandingPage onNavigate={changeView} />;
+  if (view === 'artists') return <ArtistsPage onNavigate={changeView} />;
+  if (view === 'build') return <BuildPage onNavigate={changeView} />;
+
   if (view === 'community') {
     return (
       <>
@@ -530,7 +532,10 @@ export default function App() {
           session={session}
           notice={communityNotice}
           onDismissNotice={() => setCommunityNotice('')}
+          onHome={() => changeView('home')}
+          onArtists={() => changeView('artists')}
           onCreate={() => changeView('designer')}
+          onBuild={() => changeView('build')}
           onAdmin={() => changeView('admin')}
           onAuth={() => setAuthOpen(true)}
           onLogout={logout}
@@ -544,8 +549,10 @@ export default function App() {
     return (
       <AdminPage
         session={session}
+        onHome={() => changeView('home')}
         onCreate={() => changeView('designer')}
         onCommunity={() => changeView('community')}
+        onBuild={() => changeView('build')}
         onLogout={logout}
       />
     );
@@ -555,8 +562,9 @@ export default function App() {
     <>
     <main className="app-shell editor-shell">
       <header className="topbar">
-        <div className="brand"><CircleGauge size={22} /><strong>Clock Design Creator</strong></div>
+        <button className="brand brand-button" type="button" title="Pi Klydo Clock home" onClick={() => changeView('home')}><CircleGauge size={22} /><strong>Clock Design Creator</strong></button>
         <nav className="page-switch" aria-label="Application pages">
+          <button type="button" title="Home" onClick={() => changeView('home')}><House size={14} /></button>
           <button type="button" className="active">Designer</button>
           <button type="button" onClick={() => changeView('community')}>Community</button>
           {session.user?.role === 'admin' && <button type="button" onClick={() => changeView('admin')}>Admin</button>}
