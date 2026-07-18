@@ -24,6 +24,12 @@
       "maximum_diameter": 340
     }
   },
+  "designer": {
+    "preview": {
+      "dial_center": [240, 260],
+      "pendulum_center": [240, 650]
+    }
+  },
   "designs": {
     "system_directory": "/opt/piclock/designs",
     "user_directories": [

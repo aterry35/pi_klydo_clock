@@ -3,6 +3,10 @@
 `clock.json` is the shared source of truth for device-wide rendering and design
 package limits. Both the native clock renderer and the browser designer read it.
 
+The calibrated Pi layout and the browser preview use separate center settings.
+This keeps artwork centered in the designer without changing its alignment with
+the physical enclosure on the clock.
+
 ## Configuration Levels
 
 The clock deliberately uses two JSON levels:
@@ -59,6 +63,8 @@ a malformed SD-card configuration cannot stop the clock from booting.
 | `display.circle_y_scale` | Physical pixel aspect correction. |
 | `layout.dial.center` | Upper circle center `[x, y]` in canvas pixels. |
 | `layout.pendulum.center` | Lower circle center `[x, y]` in canvas pixels. |
+| `designer.preview.dial_center` | Upper circle center used only by the browser designer and exported preview image. |
+| `designer.preview.pendulum_center` | Lower circle center used only by the browser designer and exported preview image. |
 | `layout.*.minimum_diameter` | Smallest diameter accepted from `theme.json`. |
 | `layout.*.default_diameter` | Default and designer starting diameter. |
 | `layout.*.maximum_diameter` | Largest accepted/designer diameter. |
@@ -70,3 +76,7 @@ a malformed SD-card configuration cannot stop the clock from booting.
 
 Command-line geometry options remain available for temporary diagnosis, but
 production calibration should be saved in a JSON override.
+
+The default browser preview centers both circles at `x = 240` on the 480 px
+canvas. The Pi keeps its enclosure-calibrated centers under `layout`; changing
+the `designer.preview` values does not move installed clock designs.

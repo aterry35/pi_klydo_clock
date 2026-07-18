@@ -1,6 +1,9 @@
 import clockSettings from '../../../../config/clock.json';
 
 const { display, layout, enclosure, designs } = clockSettings;
+const previewLayout = clockSettings.designer?.preview;
+const dialCenter = previewLayout?.dial_center ?? layout.dial.center;
+const pendulumCenter = previewLayout?.pendulum_center ?? layout.pendulum.center;
 
 export const FIXTURE = Object.freeze({
   widthMm: enclosure.panel_mm[0],
@@ -22,13 +25,13 @@ export const CLOCK = Object.freeze({
   height: display.height,
   fixtureBorder: layout.fixture_border_px,
   top: Object.freeze({
-    cx: layout.dial.center[0],
-    cy: layout.dial.center[1],
+    cx: dialCenter[0],
+    cy: dialCenter[1],
     r: layout.dial.default_diameter / 2,
   }),
   bottom: Object.freeze({
-    cx: layout.pendulum.center[0],
-    cy: layout.pendulum.center[1],
+    cx: pendulumCenter[0],
+    cy: pendulumCenter[1],
     r: layout.pendulum.default_diameter / 2,
   }),
 });
