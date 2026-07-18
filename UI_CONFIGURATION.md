@@ -11,6 +11,7 @@ The renderer currently supports:
 - daily automatic design selection;
 - manual design override by touch/swipe or keyboard;
 - persisted selected design state;
+- four-second upper-dial hold for on-device network recovery;
 - per-design video loop artwork;
 - per-design pendulum artwork;
 - per-design hands, dial markings, pendulum motion, and ambiance settings.
@@ -266,6 +267,9 @@ next_design
 prev_design
 daily_design
 toggle_dim
+open_network_settings
+close_network_settings
+refresh_network_settings
 quit
 ```
 
@@ -395,6 +399,7 @@ Return files in designs/sunny-kitchen/.
 - Daily rotation is date-based and deterministic, not tied to downloaded content.
 - Touch and keyboard selection work now; GPIO knob and remote API are planned
   extensions.
-- The UI configuration is file-based, not an on-screen settings interface.
+- Network recovery is available on-screen; display geometry and design configuration
+  remain file-based.
 - Physical enclosure quality still matters: the black faceplate and wood frame
   are part of the final visual polish, not only software.

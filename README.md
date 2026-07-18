@@ -14,6 +14,7 @@ designer that exports installable clock-face packages.
 - JSON-configurable display geometry shared by the renderer and design tool.
 - Built-in designs plus SD-card and SCP design-folder discovery after every boot.
 - DS3231 RTC support, NTP synchronization, and SoftAP Wi-Fi provisioning.
+- Four-second dial hold opens an on-device network recovery panel.
 - React/Vite designer with deterministic H.264 export and package validation.
 
 The target enclosure uses a **480 x 800** display behind two circular cutouts:
@@ -57,7 +58,7 @@ designs/<name>/         one folder per design (fully self-describing)
 src/piclock/            the renderer (see cli.py for entry point)
 scripts/                install, validation, generators, and preview rendering
 provisioning/           comitup.conf (SoftAP captive portal)
-systemd/                renderer + RTC-sync units
+systemd/                renderer, network helper, and RTC-sync units
 boot/                   config.txt snippet + cmdline.txt notes
 ```
 
@@ -193,6 +194,10 @@ By default the renderer starts in **daily** mode: it chooses a deterministic des
 the current date. Tap/swipe/arrow keys switch to a manual design and save that choice in
 the state file. Press `d` to return to daily rotation.
 
+Hold the upper dial without moving for four seconds to open **Network Recovery**.
+The normal tap action is suppressed after a successful long press. The panel shows
+connection state, current IP address, nearby SSIDs, refresh, and close controls.
+
 `scripts/make_sample_design.py` shows how to generate a loop + pendulum + theme
 programmatically (it uses PyAV to encode, so no system ffmpeg is required).
 
@@ -298,10 +303,25 @@ The clock UI runs regardless of network state. If no known network connects on b
 2. Pick your Wi-Fi network and enter the password.
 3. The Pi drops the AP, joins your network, and NTP→RTC writeback runs.
 
-The clock keeps rendering through the whole flow — provisioning never touches the display.
-The `external_callback` hook in `comitup.conf` is where an **on-screen** setup banner could
-be added later without changing the provisioning logic (the input layer already routes
-through an action dispatcher for exactly this kind of extension).
+The clock keeps rendering through the whole flow. For recovery from a stale or incorrect
+saved network, hold the upper dial for four seconds and choose **Start Setup Hotspot**.
+The panel requires a second confirmation because this operation removes all saved Wi-Fi
+profiles, disconnects any SSH session, and returns Comitup to hotspot mode. Join the shown
+`PiClock-XXXX` network on a phone and use its captive portal to enter the replacement Wi-Fi
+credentials. After connection, the recovery panel shows the DHCP address directly; Comitup
+also advertises its `PiClock-XXXX.local` mDNS name through Avahi.
+
+The renderer remains unprivileged. Network status, scanning, and the confirmed Comitup
+reset pass over `/run/piclock-network/control.sock` to the root-owned
+`piclock-network.service`, whose protocol allowlists only those three operations.
+
+Useful diagnostics after installation:
+
+```bash
+systemctl status NetworkManager comitup comitup-web piclock-network
+journalctl -u comitup -u comitup-web -u piclock-network -b
+nmcli device status
+```
 
 ---
 
@@ -336,9 +356,18 @@ cd piclock
 sudo bash scripts/install.sh
 ```
 
+The installer defaults the wireless regulatory country to `US`. Override it when needed:
+
+```bash
+sudo PICLOCK_WIFI_COUNTRY=CA bash scripts/install.sh
+```
+
 The installer (idempotent) installs deps, deploys to `/opt/piclock`, builds the venv
-(via piwheels), enables I2C + the DS3231, appends the `config.txt` block, installs
-comitup + the systemd units, and disables `getty@tty1`.
+(via piwheels), enables I2C + the DS3231, configures the Wi-Fi country, appends the
+`config.txt` block, installs NetworkManager/Comitup/captive-portal support and the
+systemd units, and disables `getty@tty1`. On Bookworm it first installs Comitup's
+official APT source package to obtain the required NetworkManager Python bindings;
+installation now stops if SoftAP support cannot be installed.
 It then prints the **manual** cmdline.txt step (not automated — a bad cmdline can prevent
 boot) and the DS3231 verification commands.
 
@@ -369,4 +398,5 @@ and persisted daily/manual selection.
 
 Verified on the project Pi: KMS portrait rendering, JSON geometry overrides, systemd
 startup, design discovery, persistent selection, and native H.264 playback. DS3231 wiring
-and captive-portal behavior still depend on the final hardware and network installation.
+and the complete captive-portal/long-press recovery flow still require validation after
+the freshly imaged Pi is available.

@@ -74,6 +74,15 @@ class DesignAssets:
     video_max_duration_s: float
 
 
+@dataclass(frozen=True)
+class NetworkConfig:
+    enabled: bool = True
+    interface: str = "wlan0"
+    control_socket: str = "/run/piclock-network/control.sock"
+    long_press_seconds: float = 4.0
+    max_visible_networks: int = 3
+
+
 DEFAULT_DIAL_DIAMETERS = DiameterRange(400, 400, 500)
 DEFAULT_PENDULUM_DIAMETERS = DiameterRange(260, 300, 340)
 DEFAULT_ENCLOSURE = Enclosure(
@@ -118,6 +127,7 @@ class Config:
     pendulum_diameters: DiameterRange = DEFAULT_PENDULUM_DIAMETERS
     design_assets: DesignAssets = DEFAULT_DESIGN_ASSETS
     enclosure: Enclosure = DEFAULT_ENCLOSURE
+    network: NetworkConfig = field(default_factory=NetworkConfig)
     config_paths: tuple[str, ...] = ()
 
     dim: bool = False
@@ -143,6 +153,7 @@ class Config:
         designs = _section(data, "designs")
         assets_data = _section(designs, "assets")
         enclosure_data = _section(data, "enclosure")
+        network_data = _section(data, "network")
 
         width = _integer(display, "width", 480, 100, 4096)
         height = _integer(display, "height", 800, 100, 4096)
@@ -233,6 +244,21 @@ class Config:
                 3600,
             ),
         )
+        network = NetworkConfig(
+            enabled=_boolean(network_data, "enabled", True),
+            interface=_string(network_data, "interface", "wlan0"),
+            control_socket=_string(
+                network_data,
+                "control_socket",
+                "/run/piclock-network/control.sock",
+            ),
+            long_press_seconds=_number(
+                network_data, "long_press_seconds", 4.0, 1.0, 15.0
+            ),
+            max_visible_networks=_integer(
+                network_data, "max_visible_networks", 3, 1, 5
+            ),
+        )
         if not assets.video_min_fps <= assets.video_preferred_fps <= assets.video_max_fps:
             raise ValueError("design video FPS values must be ordered min <= preferred <= max")
         if not (
@@ -264,6 +290,7 @@ class Config:
             pendulum_diameters=pendulum_sizes,
             design_assets=assets,
             enclosure=enclosure,
+            network=network,
         )
 
 
@@ -347,6 +374,13 @@ def _string(data: dict, key: str, default: str) -> str:
     value = data.get(key, default)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a non-empty string")
+    return value
+
+
+def _boolean(data: dict, key: str, default: bool) -> bool:
+    value = data.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be true or false")
     return value
 
 

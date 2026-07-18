@@ -108,8 +108,9 @@ The renderer should run before networking:
 - systemd renderer service starts after local filesystems, not
   `network-online.target`;
 - RTC provides correct time without Wi-Fi;
-- Wi-Fi provisioning is handled by comitup SoftAP/captive portal and does not
-  take over the display;
+- Wi-Fi provisioning is handled by Comitup SoftAP/captive portal and does not
+  block the renderer. A four-second dial hold opens recovery; its root helper
+  exposes only status, scan, and confirmed hotspot-reset actions;
 - NTP, when available, writes corrected time back to the DS3231.
 
 The installer defaults the renderer service user to the sudo/login user because
@@ -123,7 +124,7 @@ These items are written or configured but require the physical Pi:
 
 - DRM/KMS startup on tty1 after a cold boot;
 - DSI panel rotation and separate touch rotation;
-- comitup captive portal behavior while the renderer is active;
+- Comitup captive portal and long-press recovery while the renderer is active;
 - DS3231 overlay/hwclock behavior after power loss;
 - real CPU/RAM usage after several hours of looping.
 

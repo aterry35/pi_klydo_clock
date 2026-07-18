@@ -54,6 +54,14 @@ class FixtureGeometryTests(unittest.TestCase):
         self.assertEqual(cfg.dial_diameters.maximum, 500)
         self.assertEqual(cfg.pendulum_diameters.minimum, 260)
 
+    def test_network_recovery_settings_are_loaded(self):
+        cfg = load_config_files([bundled_config_path()])
+        self.assertTrue(cfg.network.enabled)
+        self.assertEqual(cfg.network.interface, "wlan0")
+        self.assertEqual(cfg.network.control_socket, "/run/piclock-network/control.sock")
+        self.assertEqual(cfg.network.long_press_seconds, 4.0)
+        self.assertEqual(cfg.network.max_visible_networks, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

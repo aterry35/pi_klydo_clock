@@ -17,8 +17,10 @@ from .designs import Design, DesignSet
 from .input import Dispatcher, InputRouter
 from .layers.ambiance import Ambiance
 from .layers.hands import draw_dial, draw_hands
+from .layers.network_settings import NetworkSettingsPanel
 from .layers.pendulum import PendulumLayer
 from .layers.video import VideoLoop
+from .network import NetworkClient, NetworkController
 from .timesource import TimeSource
 
 
@@ -93,7 +95,24 @@ class ClockApp:
         self.dispatcher.on("prev_design", self._prev_design)
         self.dispatcher.on("daily_design", self._daily_design)
         self.dispatcher.on("toggle_dim", self._toggle_dim)
+        self.dispatcher.on("open_network_settings", self._open_network_settings)
+        self.dispatcher.on("close_network_settings", self._close_network_settings)
+        self.dispatcher.on("refresh_network_settings", self._refresh_network_settings)
+        self.dispatcher.on("network_tap", self._network_tap)
         self.router = InputRouter(cfg, self.dispatcher)
+
+        self.network_open = False
+        self.network_controller = None
+        self.network_panel = None
+        if cfg.network.enabled:
+            self.network_controller = NetworkController(
+                NetworkClient(cfg.network.control_socket)
+            )
+            self.network_panel = NetworkSettingsPanel(
+                cfg.top,
+                cfg.circle_y_scale,
+                cfg.network.max_visible_networks,
+            )
 
         self.video = None
         self.pendulum = None
@@ -166,6 +185,37 @@ class ClockApp:
     def _toggle_dim(self) -> None:
         self.cfg.dim = not self.cfg.dim
 
+    def _open_network_settings(self) -> None:
+        if self.network_panel is None or self.network_controller is None:
+            return
+        self.network_open = True
+        self.router.set_settings_open(True)
+        self.network_panel.open()
+        self.network_controller.refresh()
+
+    def _close_network_settings(self) -> None:
+        if not self.network_open:
+            return
+        self.network_open = False
+        self.router.set_settings_open(False)
+        if self.network_panel is not None:
+            self.network_panel.close()
+
+    def _refresh_network_settings(self) -> None:
+        if self.network_controller is not None:
+            self.network_controller.refresh()
+
+    def _network_tap(self, pos: tuple[float, float]) -> None:
+        if self.network_panel is None or self.network_controller is None:
+            return
+        action = self.network_panel.handle_tap(pos, busy=self.network_controller.busy)
+        if action == "close":
+            self._close_network_settings()
+        elif action == "refresh":
+            self.network_controller.refresh()
+        elif action == "start_hotspot":
+            self.network_controller.start_hotspot()
+
     def _quit(self) -> None:
         self.running = False
 
@@ -188,6 +238,8 @@ class ClockApp:
 
         if self.video is not None:
             self.video.close()
+        if self.network_controller is not None:
+            self.network_controller.close()
         pygame.quit()
 
     def _render(self, t: float, hms, hour24: float) -> None:
@@ -197,16 +249,21 @@ class ClockApp:
         design = self._current_design
         if design is not None:
             frame = self.video.get(t)
-            cv.blit(frame, self.top_circle.topleft)
-            self.ambiance.draw_circle_overlay(cv, self.top_circle, hour24, t)
-            draw_dial(cv, self.top_circle, design.theme)
-            draw_hands(cv, self.top_circle, design.theme, hms)
-            self._draw_fixture_ring(cv, self.top_circle)
-            _aspect_correct_circle(cv, self.top_circle, self.cfg.circle_y_scale)
+            if self.network_open:
+                self._draw_network_settings(cv)
+            else:
+                cv.blit(frame, self.top_circle.topleft)
+                self.ambiance.draw_circle_overlay(cv, self.top_circle, hour24, t)
+                draw_dial(cv, self.top_circle, design.theme)
+                draw_hands(cv, self.top_circle, design.theme, hms)
+                self._draw_fixture_ring(cv, self.top_circle)
+                _aspect_correct_circle(cv, self.top_circle, self.cfg.circle_y_scale)
             self._draw_bottom_backdrop(cv, frame, design.theme, hour24, t)
             self.pendulum.draw(cv, t)
             self._draw_fixture_ring(cv, self.bottom_circle)
             _aspect_correct_circle(cv, self.bottom_circle, self.cfg.circle_y_scale)
+        elif self.network_open:
+            self._draw_network_settings(cv)
         else:
             self._draw_no_designs(cv)
 
@@ -214,6 +271,13 @@ class ClockApp:
             overlay = pygame.Surface(self.cfg.size, pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 150))
             cv.blit(overlay, (0, 0))
+
+    def _draw_network_settings(self, cv: pygame.Surface) -> None:
+        if self.network_panel is None or self.network_controller is None:
+            return
+        self.network_panel.draw(cv, self.network_controller)
+        self._draw_fixture_ring(cv, self.cfg.top)
+        _aspect_correct_circle(cv, self.cfg.top, self.cfg.circle_y_scale)
 
     def _draw_bottom_backdrop(self, cv: pygame.Surface, frame: pygame.Surface,
                               theme, hour24: float, t: float) -> None:

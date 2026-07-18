@@ -5,6 +5,7 @@ Documentation=file:/opt/piclock/README.md
 # network-online.target, so the first frame is never gated on Wi-Fi.
 After=local-fs.target systemd-user-sessions.service
 Wants=local-fs.target
+Wants=piclock-network.service
 # Take over the console; keep getty off tty1.
 Conflicts=getty@tty1.service
 After=getty@tty1.service

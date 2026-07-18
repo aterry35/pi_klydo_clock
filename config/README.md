@@ -65,6 +65,11 @@ a malformed SD-card configuration cannot stop the clock from booting.
 | `layout.pendulum.center` | Lower circle center `[x, y]` in canvas pixels. |
 | `designer.preview.dial_center` | Upper circle center used only by the browser designer and exported preview image. |
 | `designer.preview.pendulum_center` | Lower circle center used only by the browser designer and exported preview image. |
+| `network.enabled` | Enables the on-device long-press network recovery panel. |
+| `network.interface` | NetworkManager Wi-Fi device controlled by the helper. |
+| `network.control_socket` | Renderer/helper Unix socket under `/run/piclock-network`. |
+| `network.long_press_seconds` | Stationary upper-dial hold duration required to open recovery. |
+| `network.max_visible_networks` | Number of nearby SSIDs shown inside the dial. |
 | `layout.*.minimum_diameter` | Smallest diameter accepted from `theme.json`. |
 | `layout.*.default_diameter` | Default and designer starting diameter. |
 | `layout.*.maximum_diameter` | Largest accepted/designer diameter. |
@@ -80,3 +85,7 @@ production calibration should be saved in a JSON override.
 The default browser preview centers both circles at `x = 240` on the 480 px
 canvas. The Pi keeps its enclosure-calibrated centers under `layout`; changing
 the `designer.preview` values does not move installed clock designs.
+
+Network recovery values are device-wide. If `control_socket` is overridden, the
+root helper only accepts paths directly under `/run/piclock-network`; this prevents
+an SD-card override from replacing arbitrary system files.

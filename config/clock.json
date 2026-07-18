@@ -30,6 +30,13 @@
       "pendulum_center": [240, 650]
     }
   },
+  "network": {
+    "enabled": true,
+    "interface": "wlan0",
+    "control_socket": "/run/piclock-network/control.sock",
+    "long_press_seconds": 4,
+    "max_visible_networks": 3
+  },
   "designs": {
     "system_directory": "/opt/piclock/designs",
     "user_directories": [

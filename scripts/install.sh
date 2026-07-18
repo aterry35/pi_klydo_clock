@@ -25,13 +25,39 @@ CONFIG_TXT="$BOOTDIR/config.txt"
 
 say "Installing APT dependencies"
 apt-get update -y
-# SDL2 runtime (pygame-ce wheels link it), ffmpeg libs (PyAV), I2C tools, comitup.
+# SDL2 runtime (pygame-ce wheels link it), ffmpeg libs (PyAV), I2C/network tools.
 apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
     libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0 \
     libcairo2 \
-    ffmpeg i2c-tools \
-    comitup || warn "Some APT packages failed (comitup may need the comitup repo)."
+    ffmpeg i2c-tools rsync curl ca-certificates rfkill \
+    network-manager avahi-daemon
+
+install_comitup() {
+    # Bookworm's stock python3-networkmanager is too old for reliable Comitup.
+    # Install Comitup's signed APT source package before resolving dependencies.
+    . /etc/os-release
+    if [ "${VERSION_CODENAME:-}" = "bookworm" ]; then
+        local source_deb
+        source_deb="$(mktemp --suffix=.deb)"
+        curl -fsSL \
+            https://davesteele.github.io/comitup/deb/davesteele-comitup-apt-source_1.3_all.deb \
+            -o "$source_deb"
+        echo "6620d256af8d21b05782d77039150351785d596b0f3faee7154245d76dd19114  $source_deb" | \
+            sha256sum --check --status
+        dpkg -i "$source_deb"
+        rm -f "$source_deb"
+        apt-get update -y
+    fi
+    apt-get install -y comitup
+    command -v comitup-cli >/dev/null || {
+        echo "Comitup installation is incomplete: comitup-cli is missing." >&2
+        return 1
+    }
+}
+
+say "Installing SoftAP/captive-portal support"
+install_comitup
 
 say "Using '$APP_USER' as the renderer service user"
 if ! id "$APP_USER" >/dev/null 2>&1; then
@@ -51,6 +77,7 @@ mkdir -p "$APP_DIR"
 rsync -a --delete \
     --exclude '.venv' --exclude '__pycache__' --exclude 'legacy' \
     "$REPO_SRC/src" "$REPO_SRC/config" "$REPO_SRC/scripts" "$REPO_SRC/designs" \
+    "$REPO_SRC/systemd" "$REPO_SRC/provisioning" "$REPO_SRC/boot" \
     "$REPO_SRC/requirements.txt" "$REPO_SRC/README.md" \
     "$REPO_SRC/DESIGN_REVIEW.md" "$APP_DIR/"
 
@@ -88,6 +115,11 @@ chown -R "$APP_USER":"$APP_GROUP" "$APP_DIR"
 
 say "Enabling I2C + DS3231 RTC (removing fake-hwclock)"
 raspi-config nonint do_i2c 0 || warn "raspi-config i2c toggle failed (enable manually)."
+WIFI_COUNTRY="${PICLOCK_WIFI_COUNTRY:-US}"
+raspi-config nonint do_wifi_country "$WIFI_COUNTRY" || \
+    warn "Could not set Wi-Fi country to $WIFI_COUNTRY."
+rfkill unblock wifi 2>/dev/null || true
+nmcli radio wifi on 2>/dev/null || true
 # The DS3231 must be the time source, so remove the software fake clock.
 apt-get -y remove fake-hwclock || true
 update-rc.d -f fake-hwclock remove 2>/dev/null || true
@@ -107,10 +139,9 @@ else
 fi
 
 say "Installing comitup provisioning config"
-if [ -f "$REPO_SRC/provisioning/comitup.conf" ]; then
-    install -m 0644 "$REPO_SRC/provisioning/comitup.conf" /etc/comitup.conf
-    systemctl enable comitup 2>/dev/null || warn "comitup service not found (install comitup)."
-fi
+install -m 0644 "$REPO_SRC/provisioning/comitup.conf" /etc/comitup.conf
+systemctl enable NetworkManager.service avahi-daemon.service
+systemctl enable comitup.service comitup-web.service
 
 say "Installing systemd units"
 tmp_service="$(mktemp)"
@@ -119,13 +150,20 @@ sed -e "s/^User=.*/User=$APP_USER/" \
     "$REPO_SRC/systemd/piclock-renderer.service" > "$tmp_service"
 install -m 0644 "$tmp_service"  /etc/systemd/system/piclock-renderer.service
 rm -f "$tmp_service"
+tmp_network_service="$(mktemp)"
+sed -e "s/^Group=.*/Group=$APP_GROUP/" \
+    "$REPO_SRC/systemd/piclock-network.service" > "$tmp_network_service"
+install -m 0644 "$tmp_network_service" /etc/systemd/system/piclock-network.service
+rm -f "$tmp_network_service"
 install -m 0644 "$REPO_SRC/systemd/piclock-rtc-sync.service"  /etc/systemd/system/
 install -m 0644 "$REPO_SRC/systemd/piclock-rtc-sync.timer"    /etc/systemd/system/
 chmod +x "$APP_DIR/scripts/rtc_ntp_sync.sh"
 systemctl daemon-reload
 systemctl disable --now getty@tty1.service 2>/dev/null || true
 systemctl enable piclock-renderer.service
+systemctl enable piclock-network.service
 systemctl enable piclock-rtc-sync.timer
+systemctl enable ssh.service 2>/dev/null || warn "SSH service is not installed."
 
 cat <<EOF
 
@@ -139,6 +177,7 @@ Next steps (manual):
        sudo hwclock -r       # should read a time
   3. Reboot. The clock starts before Wi-Fi; if no known network is found,
      join the "PiClock-XXXX" hotspot from your phone to configure Wi-Fi.
+     You can also hold the upper dial for four seconds to open Network Recovery.
 
 Useful:
   systemctl status piclock-renderer

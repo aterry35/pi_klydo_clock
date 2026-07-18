@@ -8,6 +8,7 @@ event plumbing.
 """
 from __future__ import annotations
 
+import time
 from typing import Callable
 
 import pygame
@@ -15,19 +16,20 @@ import pygame
 from .config import Config
 
 SWIPE_THRESHOLD_FRAC = 0.12  # fraction of screen width to count as a swipe
+LONG_PRESS_MOVE_FRAC = 0.04
 
 
 class Dispatcher:
     def __init__(self):
-        self._handlers: dict[str, Callable[[], None]] = {}
+        self._handlers: dict[str, Callable[..., None]] = {}
 
-    def on(self, action: str, handler: Callable[[], None]) -> None:
+    def on(self, action: str, handler: Callable[..., None]) -> None:
         self._handlers[action] = handler
 
-    def emit(self, action: str) -> None:
+    def emit(self, action: str, *args) -> None:
         h = self._handlers.get(action)
         if h:
-            h()
+            h(*args)
 
 
 class InputRouter:
@@ -36,9 +38,17 @@ class InputRouter:
         self.d = dispatcher
         self._top_circle = cfg.top
         self._touch_start: tuple[float, float] | None = None
+        self._touch_current: tuple[float, float] | None = None
+        self._touch_started_at: float | None = None
+        self._long_press_fired = False
+        self._settings_open = False
 
     def set_top_circle(self, circle) -> None:
         self._top_circle = circle
+
+    def set_settings_open(self, is_open: bool) -> None:
+        self._settings_open = is_open
+        self._reset_press()
 
     def _norm_touch(self, nx: float, ny: float) -> tuple[float, float]:
         """Map a device-normalised finger coord (0..1) to screen pixels, applying the
@@ -72,14 +82,70 @@ class InputRouter:
         else:
             self.d.emit("next_design")  # tap
 
-    def process(self, events) -> None:
+    def _begin_press(self, pos: tuple[float, float], now: float) -> None:
+        self._touch_start = pos
+        self._touch_current = pos
+        self._touch_started_at = now
+        self._long_press_fired = False
+
+    def _move_press(self, pos: tuple[float, float]) -> None:
+        if self._touch_start is not None:
+            self._touch_current = pos
+
+    def _end_press(self, end: tuple[float, float]) -> None:
+        start = self._touch_start
+        if start is None:
+            return
+        if self._long_press_fired:
+            self._reset_press()
+            return
+        if self._settings_open:
+            self.d.emit("network_tap", end)
+        else:
+            self._handle_release(start, end)
+        self._reset_press()
+
+    def _reset_press(self) -> None:
+        self._touch_start = None
+        self._touch_current = None
+        self._touch_started_at = None
+        self._long_press_fired = False
+
+    def _check_long_press(self, now: float) -> None:
+        if (
+            self._settings_open
+            or not self.cfg.network.enabled
+            or self._long_press_fired
+            or self._touch_start is None
+            or self._touch_current is None
+            or self._touch_started_at is None
+        ):
+            return
+        if not self._in_top_circle(self._touch_start):
+            return
+        dx = abs(self._touch_current[0] - self._touch_start[0])
+        dy = abs(self._touch_current[1] - self._touch_start[1])
+        movement_limit = self.cfg.width * LONG_PRESS_MOVE_FRAC
+        if max(dx, dy) > movement_limit:
+            return
+        if now - self._touch_started_at >= self.cfg.network.long_press_seconds:
+            self._long_press_fired = True
+            self.d.emit("open_network_settings")
+
+    def process(self, events, now: float | None = None) -> None:
+        now = time.monotonic() if now is None else now
         for e in events:
             if e.type == pygame.QUIT:
                 self.d.emit("quit")
 
             # --- Keyboard (fallback) ---
             elif e.type == pygame.KEYDOWN:
-                if e.key in (pygame.K_ESCAPE, pygame.K_q):
+                if self._settings_open:
+                    if e.key in (pygame.K_ESCAPE, pygame.K_q):
+                        self.d.emit("close_network_settings")
+                    elif e.key == pygame.K_r:
+                        self.d.emit("refresh_network_settings")
+                elif e.key in (pygame.K_ESCAPE, pygame.K_q):
                     self.d.emit("quit")
                 elif e.key == pygame.K_RIGHT:
                     self.d.emit("next_design")
@@ -92,15 +158,19 @@ class InputRouter:
 
             # --- Touch (primary) ---
             elif e.type == pygame.FINGERDOWN:
-                self._touch_start = self._norm_touch(e.x, e.y)
+                self._begin_press(self._norm_touch(e.x, e.y), now)
+            elif e.type == pygame.FINGERMOTION:
+                self._move_press(self._norm_touch(e.x, e.y))
             elif e.type == pygame.FINGERUP:
                 end = self._norm_touch(e.x, e.y)
-                self._handle_release(self._touch_start, end)
-                self._touch_start = None
+                self._end_press(end)
 
             # --- Mouse (so touch UX is testable on the dev Mac) ---
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                self._touch_start = e.pos
+                self._begin_press(e.pos, now)
+            elif e.type == pygame.MOUSEMOTION:
+                self._move_press(e.pos)
             elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
-                self._handle_release(self._touch_start, e.pos)
-                self._touch_start = None
+                self._end_press(e.pos)
+
+        self._check_long_press(now)

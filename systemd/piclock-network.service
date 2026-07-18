@@ -1,0 +1,21 @@
+[Unit]
+Description=Pi Klydo Clock network recovery helper
+Documentation=file:/opt/piclock/README.md
+After=NetworkManager.service comitup.service
+Wants=NetworkManager.service comitup.service
+
+[Service]
+Type=simple
+User=root
+# install.sh rewrites this to the renderer user's primary group.
+Group=piclock
+WorkingDirectory=/opt/piclock/src
+Environment=PYTHONPATH=/opt/piclock/src
+RuntimeDirectory=piclock-network
+RuntimeDirectoryMode=0770
+ExecStart=/opt/piclock/.venv/bin/python -m piclock.network_service
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
