@@ -38,6 +38,22 @@ class ThemeLayoutTests(unittest.TestCase):
         self.assertEqual(theme.dial_diameter, 480)
         self.assertEqual(theme.bottom.diameter, 280)
 
+    def test_creator_watermark_is_loaded_from_theme_json(self):
+        theme = Theme.from_dict({
+            "creator": {
+                "artist": "Sample Artist",
+                "watermark": "Sample Mark",
+                "watermark_enabled": True,
+                "watermark_color": "#f0c070",
+                "watermark_opacity": 0.64,
+            }
+        })
+        self.assertEqual(theme.artist, "Sample Artist")
+        self.assertEqual(theme.watermark, "Sample Mark")
+        self.assertTrue(theme.watermark_enabled)
+        self.assertEqual(theme.watermark_color, (240, 192, 112))
+        self.assertEqual(theme.watermark_opacity, 0.64)
+
     def test_unique_folder_slugs_are_not_hidden_by_duplicate_display_names(self):
         with tempfile.TemporaryDirectory() as root:
             for slug in ("first", "second"):

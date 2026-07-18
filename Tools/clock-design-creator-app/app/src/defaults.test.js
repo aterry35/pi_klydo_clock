@@ -30,4 +30,17 @@ describe('template application', () => {
     expect(state.pendulum.bobShape).toBe('circle');
     expect(state.pendulum.bobInnerOffsetX).toBe(26);
   });
+
+  it('preserves creator credit and exports watermark metadata across templates', () => {
+    const state = createInitialState('kitchen-pop');
+    state.creator.artist = 'Sample Artist';
+    state.dial.watermark = { enabled: true, text: 'Sample Artist', color: '#ffffff', opacity: 0.7 };
+    const changed = applyTemplate(state, 'night');
+    expect(changed.creator.artist).toBe('Sample Artist');
+    expect(changed.dial.watermark.text).toBe('Sample Artist');
+    expect(toThemeJson(changed).creator).toEqual({
+      artist: 'Sample Artist', watermark: 'Sample Artist', watermark_enabled: true,
+      watermark_color: '#ffffff', watermark_opacity: 0.7,
+    });
+  });
 });

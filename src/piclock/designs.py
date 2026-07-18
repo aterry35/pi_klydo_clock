@@ -67,6 +67,11 @@ class BottomBackdrop:
 @dataclass
 class Theme:
     name: str
+    artist: str
+    watermark: str
+    watermark_enabled: bool
+    watermark_color: tuple[int, int, int]
+    watermark_opacity: float
     accent: tuple[int, int, int]
     background: tuple[int, int, int]
     hour: HandStyle
@@ -111,10 +116,22 @@ class Theme:
         if bottom_mode not in ("loop", "solid", "none"):
             bottom_mode = "loop"
         amb = d.get("ambiance", {})
+        creator = d.get("creator", {})
+        artist = str(creator.get("artist", "")).strip()[:60]
+        watermark = str(creator.get("watermark", artist)).strip()[:60]
+        try:
+            watermark_opacity = min(1.0, max(0.25, float(creator.get("watermark_opacity", 0.78))))
+        except (TypeError, ValueError):
+            watermark_opacity = 0.78
         background = _hex(d.get("background"), "#050505")
 
         return Theme(
             name=str(d.get("name", "Untitled")),
+            artist=artist,
+            watermark=watermark,
+            watermark_enabled=bool(creator.get("watermark_enabled", False)) and bool(watermark),
+            watermark_color=_hex(creator.get("watermark_color"), "#ffffff"),
+            watermark_opacity=watermark_opacity,
             accent=accent,
             background=background,
             hour=hand("hour", "#f0c070", 10, 0.52),

@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check, CircleGauge, Download, Eye, EyeOff, FileImage, Film, Layers3,
-  LoaderCircle, Pause, Play, Settings2, SlidersHorizontal, Sparkles, Upload,
+  LoaderCircle, LogIn, LogOut, Pause, Play, Settings2, SlidersHorizontal,
+  Sparkles, Upload, UploadCloud, UserRound,
 } from 'lucide-react';
+import { apiRequest } from './api.js';
+import { AuthDialog, CommunityPage, PublishDialog } from './Community.jsx';
 import { applyTemplate, createInitialState, TEMPLATES } from './defaults.js';
 import { exportDesignPackage, supportsDeterministicH264 } from './exporter.js';
 import { renderClock, renderDial, renderPendulumSprite, seekVideo } from './renderer.js';
@@ -124,6 +127,12 @@ function FileButton({ accept, onChange, icon: Icon = Upload, children }) {
 }
 
 export default function App() {
+  const [view, setView] = useState(() => (window.location.hash === '#community' ? 'community' : 'designer'));
+  const [session, setSession] = useState({ user: null, csrfToken: null, loading: true });
+  const [authOpen, setAuthOpen] = useState(false);
+  const [publishAfterAuth, setPublishAfterAuth] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishState, setPublishState] = useState({ running: false, error: '' });
   const [project, setProject] = useState(() => createInitialState());
   const [nameEdited, setNameEdited] = useState(false);
   const [section, setSection] = useState('setup');
@@ -149,11 +158,42 @@ export default function App() {
   resourcesRef.current = resources;
   playingRef.current = playing;
   guidesRef.current = showGuides;
-  exportRef.current = exportState.running;
+  exportRef.current = exportState.running || publishState.running;
 
   useEffect(() => {
     supportsDeterministicH264().then(setWebCodecs);
   }, []);
+
+  useEffect(() => {
+    apiRequest('/api/auth/me')
+      .then((payload) => setSession({ ...payload, loading: false }))
+      .catch(() => setSession({ user: null, csrfToken: null, loading: false }));
+  }, []);
+
+  useEffect(() => {
+    const onHashChange = () => setView(window.location.hash === '#community' ? 'community' : 'designer');
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!session.user) return;
+    setProject((current) => {
+      if (current.creator.artist || current.dial.watermark.text) return current;
+      return {
+        ...current,
+        creator: { artist: session.user.artistName },
+        dial: {
+          ...current.dial,
+          watermark: {
+            ...current.dial.watermark,
+            enabled: true,
+            text: session.user.watermark || session.user.artistName,
+          },
+        },
+      };
+    });
+  }, [session.user?.id]);
 
   useEffect(() => () => {
     resourcesRef.current.dialMedia?.url && URL.revokeObjectURL(resourcesRef.current.dialMedia.url);
@@ -161,6 +201,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (view !== 'designer') return undefined;
     dialCanvasRef.current = document.createElement('canvas');
     dialCanvasRef.current.width = DIAL_SIZE;
     dialCanvasRef.current.height = DIAL_SIZE;
@@ -215,7 +256,7 @@ export default function App() {
     };
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, []);
+  }, [view]);
 
   const update = (path, value) => {
     setProject((current) => setNestedValue(current, path, value));
@@ -400,17 +441,108 @@ export default function App() {
     }
   };
 
+  const changeView = (nextView) => {
+    setView(nextView);
+    window.location.hash = nextView === 'community' ? 'community' : 'designer';
+  };
+
+  const handleAuthenticated = (payload) => {
+    setSession({ ...payload, loading: false });
+    if (publishAfterAuth) {
+      setPublishAfterAuth(false);
+      setPublishOpen(true);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await apiRequest('/api/auth/logout', { method: 'POST', csrfToken: session.csrfToken });
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setSession({ user: null, csrfToken: null, loading: false });
+    }
+  };
+
+  const openPublish = () => {
+    if (!session.user) {
+      setPublishAfterAuth(true);
+      setAuthOpen(true);
+      return;
+    }
+    setPublishState({ running: false, error: '' });
+    setPublishOpen(true);
+  };
+
+  const doCommunityPublish = async ({ description, license }) => {
+    if (!session.user || validation.errors || publishState.running) return;
+    setPlaying(false);
+    resources.dialMedia?.element?.pause?.();
+    exportRef.current = true;
+    setPublishState({ running: true, error: '' });
+    try {
+      const output = await exportDesignPackage({
+        state: project,
+        resources: {
+          dialMedia: resources.dialMedia,
+          pendulumImage: resources.pendulumImage?.element,
+        },
+        onProgress: (_progress, message) => setPublishState({ running: true, error: '', message }),
+      });
+      const form = new FormData();
+      form.append('title', project.name);
+      form.append('description', description);
+      form.append('license', license);
+      form.append('package', output.blob, output.filename);
+      await apiRequest('/api/designs', {
+        method: 'POST', body: form, csrfToken: session.csrfToken,
+      });
+      setPublishOpen(false);
+      setPublishState({ running: false, error: '' });
+      changeView('community');
+    } catch (error) {
+      setPublishState({ running: false, error: error.message });
+    } finally {
+      exportRef.current = false;
+    }
+  };
+
+  if (view === 'community') {
+    return (
+      <>
+        <CommunityPage
+          session={session}
+          onCreate={() => changeView('designer')}
+          onAuth={() => setAuthOpen(true)}
+          onLogout={logout}
+        />
+        <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
+      </>
+    );
+  }
+
   return (
-    <main className="app-shell">
+    <>
+    <main className="app-shell editor-shell">
       <header className="topbar">
         <div className="brand"><CircleGauge size={22} /><strong>Clock Design Creator</strong></div>
+        <nav className="page-switch" aria-label="Application pages">
+          <button type="button" className="active">Designer</button>
+          <button type="button" onClick={() => changeView('community')}>Community</button>
+        </nav>
         <div className="package-name"><span>Package</span><code>{slugify(project.name) || 'untitled'}/</code></div>
         <div className="topbar-spacer" />
         <span className={`codec-badge ${webCodecs ? 'ready' : ''}`}>{webCodecs ? 'H.264 · exact frames' : 'Checking encoder'}</span>
+        <button className="secondary-button" type="button" onClick={openPublish} disabled={exportState.running || publishState.running || validation.errors > 0}>
+          <UploadCloud size={16} />Publish
+        </button>
         <button className="primary-button" type="button" onClick={doExport} disabled={exportState.running || validation.errors > 0}>
           {exportState.running ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
           Export ZIP
         </button>
+        {session.user ? (
+          <><span className="artist-chip"><UserRound size={14} />{session.user.artistName}</span><button className="icon-button" type="button" title="Sign out" onClick={logout}><LogOut size={16} /></button></>
+        ) : <button className="icon-button" type="button" title="Sign in" onClick={() => setAuthOpen(true)}><LogIn size={16} /></button>}
       </header>
 
       <div className="workspace">
@@ -447,7 +579,7 @@ export default function App() {
         <aside className="inspector">
           {notice && <div className="notice">{notice}</div>}
           {section === 'setup' && (
-            <SetupPanel project={project} updateName={updateName} chooseTemplate={chooseTemplate} />
+            <SetupPanel project={project} update={update} updateName={updateName} chooseTemplate={chooseTemplate} />
           )}
           {section === 'dial' && (
             <DialPanel project={project} update={update} resources={resources} importMedia={importDialMedia} clearMedia={clearDialMedia} />
@@ -468,16 +600,33 @@ export default function App() {
         </aside>
       </div>
     </main>
+    <AuthDialog open={authOpen} onClose={() => { setAuthOpen(false); setPublishAfterAuth(false); }} onAuthenticated={handleAuthenticated} />
+    <PublishDialog
+      open={publishOpen}
+      onClose={() => setPublishOpen(false)}
+      project={project}
+      session={session}
+      busy={publishState.running}
+      error={publishState.error}
+      onPublish={doCommunityPublish}
+    />
+    </>
   );
 }
 
-function SetupPanel({ project, updateName, chooseTemplate }) {
+function SetupPanel({ project, update, updateName, chooseTemplate }) {
   return (
     <>
       <PanelHeading title="Setup">Name the package and choose an editable starting point.</PanelHeading>
       <SectionLabel>Design name</SectionLabel>
       <input className="text-input" value={project.name} onChange={(event) => updateName(event.target.value)} />
       <div className="slug-row"><span>slug</span><code>{slugify(project.name) || 'invalid'}</code></div>
+      <SectionLabel>Creator credit</SectionLabel>
+      <label className="stacked-field"><span>Artist name</span><input className="text-input" maxLength="60" value={project.creator.artist} onChange={(event) => update('creator.artist', event.target.value)} /></label>
+      <Toggle label="Embed watermark in dial" checked={project.dial.watermark.enabled} onChange={(value) => update('dial.watermark.enabled', value)} />
+      <label className="stacked-field"><span>Watermark text</span><input className="text-input" maxLength="60" value={project.dial.watermark.text} onChange={(event) => update('dial.watermark.text', event.target.value)} /></label>
+      <ColorField label="Watermark color" value={project.dial.watermark.color} onChange={(value) => update('dial.watermark.color', value)} />
+      <RangeField label="Opacity" value={Math.round(project.dial.watermark.opacity * 100)} min={25} max={100} step={1} onChange={(value) => update('dial.watermark.opacity', value / 100)} suffix="%" />
       <SectionLabel>Templates</SectionLabel>
       <div className="template-grid">
         {Object.entries(TEMPLATES).map(([key, template]) => (

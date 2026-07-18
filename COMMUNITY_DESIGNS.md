@@ -8,6 +8,11 @@ Design folders do not carry device positions. Circle centers, enclosure geometry
 allowed diameters, and output asset limits live in `config/clock.json`, so one
 calibration applies to every community design.
 
+The hosted designer also has a Community page. Anyone can browse and download
+published designs. An artist account is required to publish, like, or comment.
+The exported ZIP format is the same whether it is downloaded locally or from the
+gallery.
+
 ## Where To Put Designs
 
 The renderer scans these locations at startup:
@@ -144,6 +149,13 @@ Example:
 ```json
 {
   "name": "Sunny Kitchen",
+  "creator": {
+    "artist": "A. Artist",
+    "watermark": "A. Artist",
+    "watermark_enabled": true,
+    "watermark_color": "#ffffff",
+    "watermark_opacity": 0.65
+  },
   "accent": "#ffb70f",
   "background": "#050505",
   "hands": {
@@ -197,6 +209,9 @@ Example:
 Useful values:
 
 - `hands.hour` and `hands.minute` control the real clock hands.
+- `creator.artist` identifies the artist in the gallery and package metadata.
+- `creator.watermark` is rendered on the upper dial by the Pi clock. Community
+  publishing requires the watermark to be enabled.
 - Set `hands.second.visible` to `false` for a clean art-clock face.
 - `shape` can be `rounded` or `spindle`.
 - `dial.markings` can be `none`, `ticks`, `numerals`, or `both`.

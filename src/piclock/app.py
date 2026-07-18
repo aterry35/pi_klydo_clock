@@ -16,7 +16,7 @@ from .config import Circle, Config
 from .designs import Design, DesignSet
 from .input import Dispatcher, InputRouter
 from .layers.ambiance import Ambiance
-from .layers.hands import draw_dial, draw_hands
+from .layers.hands import draw_dial, draw_hands, draw_watermark
 from .layers.network_settings import NetworkSettingsPanel
 from .layers.pendulum import PendulumLayer
 from .layers.video import VideoLoop
@@ -255,6 +255,7 @@ class ClockApp:
                 cv.blit(frame, self.top_circle.topleft)
                 self.ambiance.draw_circle_overlay(cv, self.top_circle, hour24, t)
                 draw_dial(cv, self.top_circle, design.theme)
+                draw_watermark(cv, self.top_circle, design.theme)
                 draw_hands(cv, self.top_circle, design.theme, hms)
                 self._draw_fixture_ring(cv, self.top_circle)
                 _aspect_correct_circle(cv, self.top_circle, self.cfg.circle_y_scale)

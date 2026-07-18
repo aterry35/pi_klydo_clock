@@ -265,27 +265,45 @@ export function drawImportedMedia(context, dial, media) {
   context.drawImage(source, x, y, width * scale, height * scale);
 }
 
+function drawWatermark(context, circle, watermark) {
+  const text = String(watermark?.text || '').trim();
+  if (!watermark?.enabled || !text) return;
+  context.save();
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  let size = Math.max(11, Math.round(circle.r * 0.09));
+  context.font = `600 ${size}px system-ui, sans-serif`;
+  while (size > 11 && context.measureText(text).width > circle.r * 1.12) {
+    size -= 1;
+    context.font = `600 ${size}px system-ui, sans-serif`;
+  }
+  context.shadowColor = 'rgba(0,0,0,0.65)';
+  context.shadowBlur = 4;
+  context.fillStyle = colorWithAlpha(watermark.color || '#ffffff', watermark.opacity ?? 0.78);
+  context.fillText(text, circle.cx, circle.cy + circle.r * 0.7, circle.r * 1.12);
+  context.restore();
+}
+
 export function renderDial(context, dial, time, media = null, frameIndex = 0) {
   const duration = Math.max(0.5, dial.duration);
   const phase = (time % duration) / duration * Math.PI * 2 * Math.max(1, Math.round(dial.cycles));
   context.save();
   if (dial.mode === 'media') {
     drawImportedMedia(context, dial, media);
-    context.restore();
-    return;
+  } else {
+    const outputScale = DIAL_SIZE / BASE_DIAL_SIZE;
+    context.scale(outputScale, outputScale);
+    context.fillStyle = dial.c3;
+    context.fillRect(0, 0, BASE_DIAL_SIZE, BASE_DIAL_SIZE);
+    if (dial.anim === 'mandala') drawMandala(context, phase, dial);
+    if (dial.anim === 'breathing') drawBreathing(context, phase, dial);
+    if (dial.anim === 'drift') drawDrift(context, phase, dial);
+    if (dial.anim === 'waves') drawWaves(context, phase, dial);
+    if (dial.anim === 'colorcycle') drawColorCycle(context, phase, dial);
+    if (dial.anim === 'grain') drawGrain(context, phase, dial, frameIndex);
+    if (dial.anim === 'kitchen-pop') drawKitchenPop(context, phase, dial);
+    if (dial.anim === 'paper-cut') drawPaperCut(context, phase, dial);
   }
-  const outputScale = DIAL_SIZE / BASE_DIAL_SIZE;
-  context.scale(outputScale, outputScale);
-  context.fillStyle = dial.c3;
-  context.fillRect(0, 0, BASE_DIAL_SIZE, BASE_DIAL_SIZE);
-  if (dial.anim === 'mandala') drawMandala(context, phase, dial);
-  if (dial.anim === 'breathing') drawBreathing(context, phase, dial);
-  if (dial.anim === 'drift') drawDrift(context, phase, dial);
-  if (dial.anim === 'waves') drawWaves(context, phase, dial);
-  if (dial.anim === 'colorcycle') drawColorCycle(context, phase, dial);
-  if (dial.anim === 'grain') drawGrain(context, phase, dial, frameIndex);
-  if (dial.anim === 'kitchen-pop') drawKitchenPop(context, phase, dial);
-  if (dial.anim === 'paper-cut') drawPaperCut(context, phase, dial);
   context.restore();
 }
 
@@ -594,6 +612,7 @@ export function renderClock(context, state, dialCanvas, pendulumCanvas, time, no
   context.clip();
   context.drawImage(dialCanvas, top.cx - top.r, top.cy - top.r, top.r * 2, top.r * 2);
   drawAmbiance(context, top, state.theme, time, now);
+  drawWatermark(context, top, state.dial.watermark);
   context.restore();
   drawMarkings(context, top, state.theme);
   drawHands(context, top, state.theme, now);

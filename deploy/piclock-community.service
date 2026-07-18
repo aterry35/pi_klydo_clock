@@ -1,0 +1,28 @@
+[Unit]
+Description=Pi Klydo Clock community API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=piclock-community
+Group=piclock-community
+WorkingDirectory=/opt/pi-clock-community/current
+Environment=PICLOCK_DATA_DIR=/var/lib/pi-clock-community
+Environment=PICLOCK_COOKIE_SECURE=1
+Environment=PICLOCK_ALLOWED_ORIGIN=https://designer.18-191-209-51.sslip.io
+ExecStart=/opt/pi-clock-community/venv/bin/gunicorn --workers 1 --threads 4 --timeout 180 --bind 127.0.0.1:8080 community.app:app
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pi-clock-community
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryMax=350M
+
+[Install]
+WantedBy=multi-user.target

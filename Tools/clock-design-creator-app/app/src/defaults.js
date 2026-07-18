@@ -163,6 +163,9 @@ export function createInitialState(templateKey = 'kitchen-pop') {
   const selected = TEMPLATES[templateKey];
   return {
     name: selected.name,
+    creator: {
+      artist: '',
+    },
     dial: {
       ...structuredClone(selected.dial),
       mediaName: '',
@@ -172,6 +175,12 @@ export function createInitialState(templateKey = 'kitchen-pop') {
       mediaScale: 1,
       mediaX: 0,
       mediaY: 0,
+      watermark: {
+        enabled: false,
+        text: '',
+        color: '#ffffff',
+        opacity: 0.78,
+      },
     },
     pendulum: {
       ...structuredClone(selected.pendulum),
@@ -187,6 +196,8 @@ export function applyTemplate(current, templateKey, preserveName = false) {
   const selected = TEMPLATES[templateKey];
   if (!selected) return current;
   const fresh = createInitialState(templateKey);
+  fresh.creator = structuredClone(current.creator || fresh.creator);
+  fresh.dial.watermark = structuredClone(current.dial?.watermark || fresh.dial.watermark);
   return preserveName ? { ...fresh, name: current.name } : fresh;
 }
 
@@ -194,6 +205,13 @@ export function toThemeJson(state) {
   const { theme: current } = state;
   return {
     name: state.name,
+    creator: {
+      artist: state.creator?.artist || '',
+      watermark: state.dial?.watermark?.text || '',
+      watermark_enabled: Boolean(state.dial?.watermark?.enabled),
+      watermark_color: state.dial?.watermark?.color || '#ffffff',
+      watermark_opacity: state.dial?.watermark?.opacity ?? 0.78,
+    },
     accent: current.accent,
     background: current.background,
     hands: structuredClone(current.hands),

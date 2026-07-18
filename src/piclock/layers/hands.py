@@ -113,6 +113,27 @@ def draw_dial(surface: pygame.Surface, circle: Circle, theme: Theme) -> None:
     surface.blit(build_dial_surface(circle, theme), (0, 0))
 
 
+def draw_watermark(surface: pygame.Surface, circle: Circle, theme: Theme) -> None:
+    """Render creator credit once inside the upper dial."""
+    text = theme.watermark.strip()
+    if not theme.watermark_enabled or not text:
+        return
+    size = max(11, int(circle.r * 0.09))
+    font = _font(size)
+    max_width = circle.r * 1.12
+    while size > 11 and font.size(text)[0] > max_width:
+        size -= 1
+        font = _font(size)
+    alpha = int(255 * theme.watermark_opacity)
+    shadow = font.render(text, True, (0, 0, 0))
+    shadow.set_alpha(min(210, alpha))
+    label = font.render(text, True, theme.watermark_color)
+    label.set_alpha(alpha)
+    center = (circle.cx, int(circle.cy + circle.r * 0.70))
+    surface.blit(shadow, shadow.get_rect(center=(center[0] + 1, center[1] + 2)))
+    surface.blit(label, label.get_rect(center=center))
+
+
 def _draw_second(surface: pygame.Surface, center, angle, style: HandStyle, r: float) -> None:
     length = style.length * r
     end = _endpoint(*center, angle, length)

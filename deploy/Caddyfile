@@ -1,6 +1,16 @@
 designer.18-191-209-51.sslip.io {
-	root * /var/www/pi-clock-designer/current
 	encode zstd gzip
+
+	@api path /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		root * /var/www/pi-clock-designer/current
+		try_files {path} /index.html
+		file_server
+	}
 
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
@@ -14,7 +24,4 @@ designer.18-191-209-51.sslip.io {
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 	}
-
-	try_files {path} /index.html
-	file_server
 }

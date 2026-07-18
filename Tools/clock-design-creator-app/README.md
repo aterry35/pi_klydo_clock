@@ -10,8 +10,9 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. The app does not require a server account or
-upload artwork to a remote service. Imported media stays in the browser.
+Open the local URL printed by Vite. Editing and local ZIP export do not require an
+account, and imported media stays in the browser until the user publishes. Publishing
+uploads the validated package and preview to the Community gallery.
 
 The editor requires a current Chromium browser with WebCodecs H.264 support.
 Chrome and Edge are the supported export browsers.
@@ -29,6 +30,19 @@ The editor imports the repository's `config/clock.json` directly. Preview center
 circle diameter limits, CAD measurements, output canvas sizes, frame-rate limits,
 and duration limits therefore stay synchronized with the native renderer. Restart
 Vite after changing that file if hot reload does not pick up an external JSON edit.
+
+## Community publishing
+
+The Community page is publicly readable. Registering an artist account enables
+publishing, likes, and comments. The artist name is written into `theme.json`, shown
+on gallery cards, and must match the signed-in profile when publishing. Community
+submissions require an enabled dial watermark; the Pi renderer draws it over the
+upper dial without baking it into the loop video.
+
+The initial service deliberately keeps moderation simple. Published packages become
+visible immediately, and there is no email verification, password reset, or public
+artist administration UI yet. Operators can remove content directly from the server
+if required during the soft opening.
 
 ## Build And Test
 

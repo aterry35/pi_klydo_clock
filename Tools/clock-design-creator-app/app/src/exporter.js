@@ -109,6 +109,8 @@ async function encodeDialMp4(state, media, onProgress) {
 function readmeText(state, slug, metadata) {
   return `${state.name} - Pi Clock design package
 Made with Pi Clock Design Creator
+Artist: ${state.creator?.artist || 'Not specified'}
+Watermark: ${state.dial?.watermark?.enabled ? state.dial.watermark.text : 'Disabled'}
 
 Contents
   loop.mp4      ${DIAL_SIZE}x${DIAL_SIZE} H.264 animation, ${metadata.duration}s at ${metadata.fps} fps (${metadata.frameCount} frames)
@@ -163,6 +165,7 @@ export async function exportDesignPackage({ state, resources, onProgress }) {
   const reportBytes = encoder.encode(`${JSON.stringify({
     format: 'pi-clock-design-v1',
     generated_at: new Date().toISOString(),
+    creator: toThemeJson(state).creator,
     video: metadata,
   }, null, 2)}\n`);
   onProgress?.(0.92, 'Packaging ZIP');

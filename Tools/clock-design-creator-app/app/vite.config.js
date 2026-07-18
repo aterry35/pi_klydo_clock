@@ -11,6 +11,10 @@ const workspaceRoot = path.resolve(
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '127.0.0.1',
+    proxy: {
+      '/api': 'http://127.0.0.1:8080',
+    },
     fs: {
       allow: [workspaceRoot],
     },

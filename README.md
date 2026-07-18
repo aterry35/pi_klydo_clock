@@ -16,6 +16,7 @@ designer that exports installable clock-face packages.
 - DS3231 RTC support, NTP synchronization, and SoftAP Wi-Fi provisioning.
 - Four-second dial hold opens an on-device network recovery panel.
 - React/Vite designer with deterministic H.264 export and package validation.
+- Public community gallery with artist profiles, watermarks, likes, comments, and ZIP downloads.
 
 The target enclosure uses a **480 x 800** display behind two circular cutouts:
 
@@ -47,6 +48,7 @@ config/clock.json       shared device geometry, folders, and design limits
 docs/images/            renderer-generated design screenshots for documentation
 3d_enclosure/*.stl      printable frame, faceplate, and rear enclosure meshes
 deploy/                 public designer Caddy configuration and deployment notes
+community/              Flask API, SQLite schema, design storage, seeding, and backups
 Tools/clock-design-creator-app/app/
                         Browser editor for building validated design ZIPs
 CLAUDE_DESIGN_APP_PROMPT.md prompt for building a design creator app
@@ -113,8 +115,9 @@ A 480×800 window opens with the sample design. **Controls:** click/tap the top 
 ## Run the design creator
 
 The public production designer is available at
-<https://designer.18-191-209-51.sslip.io>. All design media remains in the user's
-browser; the server only delivers the static application.
+<https://designer.18-191-209-51.sslip.io>. Local editing and ZIP export do not
+require an account. Publishing to the Community page requires an artist account;
+published packages, previews, likes, and comments are stored by the community API.
 
 ```bash
 cd Tools/clock-design-creator-app/app
@@ -132,7 +135,9 @@ npm run build
 ```
 
 See [`Tools/clock-design-creator-app/README.md`](Tools/clock-design-creator-app/README.md)
-for the complete editor and export contract.
+for the complete editor and export contract. See
+[`COMMUNITY_SOFT_OPENING.md`](COMMUNITY_SOFT_OPENING.md) for the hosted service,
+operating procedure, backups, and soft-opening limitations.
 
 ---
 
@@ -145,6 +150,13 @@ only a partial `theme.json` still renders.
 ```jsonc
 {
   "name": "Test Card",
+  "creator": {
+    "artist": "Artist Name",
+    "watermark": "Artist Name",
+    "watermark_enabled": true,
+    "watermark_color": "#ffffff",
+    "watermark_opacity": 0.65
+  },
   "accent": "#d9a24a",          // hub, pendulum ring, dial accents
   "background": "#050505",       // used when day_night is off
   "hands": {
