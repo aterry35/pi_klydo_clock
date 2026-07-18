@@ -97,10 +97,16 @@ class NetworkBackend:
         }
 
     def _comitup_status(self) -> tuple[str, str]:
-        output = self._optional(["comitup-cli", "r"], timeout=2.0)
+        output = self._optional(["comitup-cli", "i"], timeout=2.0)
         state = ""
         connection = ""
         for line in output.splitlines():
+            stripped = line.strip()
+            if stripped.upper().endswith(" STATE"):
+                candidate = stripped[:-6].strip().upper()
+                if candidate in {"HOTSPOT", "CONNECTING", "CONNECTED"}:
+                    state = candidate
+                    continue
             key, separator, value = line.partition(":")
             if not separator:
                 continue
@@ -179,7 +185,11 @@ class NetworkBackend:
                 "in_use": in_use.strip() == "*",
             }
             existing = by_ssid.get(ssid)
-            if existing is None or strength > existing["signal"]:
+            if (
+                existing is None
+                or (point["in_use"] and not existing["in_use"])
+                or (point["in_use"] == existing["in_use"] and strength > existing["signal"])
+            ):
                 by_ssid[ssid] = point
         return sorted(
             by_ssid.values(),

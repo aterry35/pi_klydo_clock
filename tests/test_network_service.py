@@ -32,8 +32,12 @@ class NetworkServiceTests(unittest.TestCase):
     def test_snapshot_combines_comitup_networkmanager_and_ip_data(self):
         runner = FakeRunner([
             (
-                lambda args: args[:2] == ["comitup-cli", "r"],
-                CommandResult(0, "State: CONNECTED\nConnection: Home WiFi\n"),
+                lambda args: args[:2] == ["comitup-cli", "i"],
+                CommandResult(
+                    0,
+                    "Host PiClock-1234.local on comitup version 1.43\n"
+                    "'single' mode\nCONNECTED state\n",
+                ),
             ),
             (
                 lambda args: "GENERAL.STATE,GENERAL.CONNECTION" in args,
@@ -56,7 +60,8 @@ class NetworkServiceTests(unittest.TestCase):
                 lambda args: "IN-USE,SSID,SIGNAL,SECURITY" in args,
                 CommandResult(
                     0,
-                    "*:Home WiFi:78:WPA2\n:Guest\\: IoT:64:WPA2\n:Home WiFi:42:WPA2\n",
+                    ":Home WiFi:95:WPA2\n*:Home WiFi:78:WPA2\n"
+                    ":Guest\\: IoT:64:WPA2\n",
                 ),
             ),
         ])
@@ -113,11 +118,16 @@ class NetworkServiceTests(unittest.TestCase):
             nonlocal status_calls
             if args[:2] == ["comitup-cli", "x"]:
                 return CommandResult(0)
-            if args[:2] == ["comitup-cli", "r"]:
+            if args[:2] == ["comitup-cli", "i"]:
                 status_calls += 1
                 state = "CONNECTED" if status_calls == 1 else "HOTSPOT"
+                return CommandResult(0, f"{state} state\n")
+            if "GENERAL.STATE,GENERAL.CONNECTION" in args:
                 connection = "Home WiFi" if status_calls == 1 else "PiClock-1234"
-                return CommandResult(0, f"State: {state}\nConnection: {connection}\n")
+                return CommandResult(
+                    0,
+                    f"GENERAL.STATE:100 (connected)\nGENERAL.CONNECTION:{connection}\n",
+                )
             return CommandResult(1, stderr="not available")
 
         backend = NetworkBackend(runner=runner, sleeper=lambda _: None)

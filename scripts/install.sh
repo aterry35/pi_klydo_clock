@@ -73,13 +73,21 @@ done
 
 say "Deploying app to $APP_DIR"
 mkdir -p "$APP_DIR"
-# Copy source, configuration, designs, and scripts. Skip the venv/legacy.
+# Copy source, configuration, scripts, and optionally bundled designs.
+deploy_sources=(
+    "$REPO_SRC/src" "$REPO_SRC/config" "$REPO_SRC/scripts"
+    "$REPO_SRC/systemd" "$REPO_SRC/provisioning" "$REPO_SRC/boot"
+    "$REPO_SRC/requirements.txt" "$REPO_SRC/README.md"
+    "$REPO_SRC/DESIGN_REVIEW.md"
+)
+if [ "${PICLOCK_PRESERVE_DESIGNS:-0}" = "1" ]; then
+    echo "Preserving existing $APP_DIR/designs exactly as installed."
+else
+    deploy_sources+=("$REPO_SRC/designs")
+fi
 rsync -a --delete \
     --exclude '.venv' --exclude '__pycache__' --exclude 'legacy' \
-    "$REPO_SRC/src" "$REPO_SRC/config" "$REPO_SRC/scripts" "$REPO_SRC/designs" \
-    "$REPO_SRC/systemd" "$REPO_SRC/provisioning" "$REPO_SRC/boot" \
-    "$REPO_SRC/requirements.txt" "$REPO_SRC/README.md" \
-    "$REPO_SRC/DESIGN_REVIEW.md" "$APP_DIR/"
+    "${deploy_sources[@]}" "$APP_DIR/"
 
 say "Installing device configuration"
 install -d -m 0755 /etc/piclock
