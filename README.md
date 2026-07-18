@@ -45,6 +45,7 @@ COMMUNITY_DESIGNS.md    SD-card/SCP copy workflow + artist package contract
 config/clock.json       shared device geometry, folders, and design limits
 docs/images/            renderer-generated design screenshots for documentation
 3d_enclosure/*.stl      printable frame, faceplate, and rear enclosure meshes
+deploy/                 public designer Caddy configuration and deployment notes
 Tools/clock-design-creator-app/app/
                         Browser editor for building validated design ZIPs
 CLAUDE_DESIGN_APP_PROMPT.md prompt for building a design creator app
@@ -109,6 +110,10 @@ A 480×800 window opens with the sample design. **Controls:** click/tap the top 
 `space` toggles night dimming; `esc`/`q` quits.
 
 ## Run the design creator
+
+The public production designer is available at
+<https://designer.18-191-209-51.sslip.io>. All design media remains in the user's
+browser; the server only delivers the static application.
 
 ```bash
 cd Tools/clock-design-creator-app/app
