@@ -38,7 +38,13 @@ REPORT_REASONS = {
     "broken_package",
     "other",
 }
-DESIGN_STATUSES = {"published", "hidden"}
+DESIGN_STATUSES = {"pending_review", "published", "rejected", "hidden"}
+DESIGN_TRANSITIONS = {
+    "pending_review": {"published", "rejected"},
+    "published": {"hidden"},
+    "hidden": {"published"},
+    "rejected": {"pending_review"},
+}
 USER_STATUSES = {"active", "suspended"}
 
 SCHEMA = """
@@ -73,7 +79,10 @@ CREATE TABLE IF NOT EXISTS designs (
     preview_path TEXT NOT NULL,
     package_bytes INTEGER NOT NULL,
     downloads INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'published',
+    status TEXT NOT NULL DEFAULT 'pending_review',
+    reviewed_at TEXT,
+    reviewed_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    review_reason TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -192,6 +201,9 @@ def init_database(path: Path) -> None:
         ensure_column(db, "users", "status", "TEXT NOT NULL DEFAULT 'active'")
         ensure_column(db, "users", "suspended_at", "TEXT")
         ensure_column(db, "users", "suspension_reason", "TEXT")
+        ensure_column(db, "designs", "reviewed_at", "TEXT")
+        ensure_column(db, "designs", "reviewed_by_user_id", "TEXT")
+        ensure_column(db, "designs", "review_reason", "TEXT")
         db.commit()
     finally:
         db.close()
@@ -425,6 +437,12 @@ def design_payload(
     if include_status:
         payload["status"] = row["status"]
         payload["userId"] = row["user_id"]
+        payload["reviewedAt"] = row["reviewed_at"]
+        payload["reviewedByUserId"] = row["reviewed_by_user_id"]
+        payload["reviewReason"] = row["review_reason"]
+        payload["reviewedByName"] = (
+            row["reviewer_name"] if "reviewer_name" in row.keys() else None
+        )
     return payload
 
 
@@ -680,8 +698,9 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
             get_db().execute(
                 """
                 INSERT INTO designs
-                    (id, user_id, slug, title, description, license, package_path, preview_path, package_bytes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, user_id, slug, title, description, license, package_path,
+                     preview_path, package_bytes, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_review', ?)
                 """,
                 (
                     design_id,
@@ -700,8 +719,8 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
         except Exception:
             shutil.rmtree(design_dir, ignore_errors=True)
             raise
-        row = select_design(design_id, user["id"])
-        return jsonify({"design": design_payload(row, False)}), 201
+        row = select_design(design_id, user["id"], include_hidden=True)
+        return jsonify({"design": design_payload(row, False, include_status=True)}), 201
 
     @app.get("/api/designs/<design_id>/preview")
     def design_preview(design_id: str):
@@ -837,6 +856,8 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
             """
             SELECT
               (SELECT COUNT(*) FROM designs WHERE status = 'published') AS published_designs,
+              (SELECT COUNT(*) FROM designs WHERE status = 'pending_review') AS pending_designs,
+              (SELECT COUNT(*) FROM designs WHERE status = 'rejected') AS rejected_designs,
               (SELECT COUNT(*) FROM designs WHERE status = 'hidden') AS hidden_designs,
               (SELECT COUNT(*) FROM reports WHERE status = 'open') AS open_reports,
               (SELECT COUNT(*) FROM users WHERE status = 'active') AS active_users,
@@ -848,6 +869,8 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
             {
                 "summary": {
                     "publishedDesigns": row["published_designs"],
+                    "pendingDesigns": row["pending_designs"],
+                    "rejectedDesigns": row["rejected_designs"],
                     "hiddenDesigns": row["hidden_designs"],
                     "openReports": row["open_reports"],
                     "activeUsers": row["active_users"],
@@ -918,11 +941,14 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
         rows = get_db().execute(
             f"""
             SELECT d.*, u.artist_name, u.watermark,
+                   reviewer.artist_name AS reviewer_name,
                    (SELECT COUNT(*) FROM likes l WHERE l.design_id = d.id) AS like_count,
                    (SELECT COUNT(*) FROM comments c WHERE c.design_id = d.id) AS comment_count,
                    (SELECT COUNT(*) FROM reports r WHERE r.design_id = d.id AND r.status = 'open') AS open_report_count,
                    EXISTS(SELECT 1 FROM likes mine WHERE mine.design_id = d.id AND mine.user_id = ?) AS liked_by_me
-            FROM designs d JOIN users u ON u.id = d.user_id
+            FROM designs d
+            JOIN users u ON u.id = d.user_id
+            LEFT JOIN users reviewer ON reviewer.id = d.reviewed_by_user_id
             {condition}
             ORDER BY d.created_at DESC
             LIMIT 250
@@ -1019,12 +1045,43 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
         if not design:
             raise ApiError("Design not found.", 404)
         previous = design["status"]
-        db.execute("UPDATE designs SET status = ? WHERE id = ?", (status, design_id))
+        if status not in DESIGN_TRANSITIONS.get(previous, set()):
+            raise ApiError(
+                f"A design cannot move from {previous} to {status}.", 409
+            )
+        action = {
+            ("pending_review", "published"): "approve_design",
+            ("pending_review", "rejected"): "reject_design",
+            ("published", "hidden"): "hide_design",
+            ("hidden", "published"): "restore_design",
+            ("rejected", "pending_review"): "reopen_design",
+        }[(previous, status)]
+        if status in {"published", "rejected"} and previous == "pending_review":
+            db.execute(
+                """
+                UPDATE designs
+                SET status = ?, reviewed_at = ?, reviewed_by_user_id = ?, review_reason = ?
+                WHERE id = ?
+                """,
+                (status, utc_now(), actor["id"], reason, design_id),
+            )
+        elif status == "pending_review":
+            db.execute(
+                """
+                UPDATE designs
+                SET status = ?, reviewed_at = NULL, reviewed_by_user_id = NULL,
+                    review_reason = NULL
+                WHERE id = ?
+                """,
+                (status, design_id),
+            )
+        else:
+            db.execute("UPDATE designs SET status = ? WHERE id = ?", (status, design_id))
         record_action(
             db,
             actor=actor,
             actor_name=actor_name,
-            action="hide_design" if status == "hidden" else "restore_design",
+            action=action,
             target_type="design",
             target_id=design_id,
             reason=reason,

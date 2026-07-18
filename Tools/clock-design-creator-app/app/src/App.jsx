@@ -137,6 +137,7 @@ export default function App() {
   const [publishAfterAuth, setPublishAfterAuth] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishState, setPublishState] = useState({ running: false, error: '' });
+  const [communityNotice, setCommunityNotice] = useState('');
   const [project, setProject] = useState(() => createInitialState());
   const [nameEdited, setNameEdited] = useState(false);
   const [section, setSection] = useState('setup');
@@ -513,6 +514,7 @@ export default function App() {
       });
       setPublishOpen(false);
       setPublishState({ running: false, error: '' });
+      setCommunityNotice('Design submitted for administrator review. It will appear after approval.');
       changeView('community');
     } catch (error) {
       setPublishState({ running: false, error: error.message });
@@ -526,6 +528,8 @@ export default function App() {
       <>
         <CommunityPage
           session={session}
+          notice={communityNotice}
+          onDismissNotice={() => setCommunityNotice('')}
           onCreate={() => changeView('designer')}
           onAdmin={() => changeView('admin')}
           onAuth={() => setAuthOpen(true)}
@@ -561,7 +565,7 @@ export default function App() {
         <div className="topbar-spacer" />
         <span className={`codec-badge ${webCodecs ? 'ready' : ''}`}>{webCodecs ? 'H.264 · exact frames' : 'Checking encoder'}</span>
         <button className="secondary-button" type="button" onClick={openPublish} disabled={exportState.running || publishState.running || validation.errors > 0}>
-          <UploadCloud size={16} />Publish
+          <UploadCloud size={16} />Submit
         </button>
         <button className="primary-button" type="button" onClick={doExport} disabled={exportState.running || validation.errors > 0}>
           {exportState.running ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}

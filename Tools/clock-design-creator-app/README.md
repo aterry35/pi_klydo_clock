@@ -34,15 +34,17 @@ Vite after changing that file if hot reload does not pick up an external JSON ed
 ## Community publishing
 
 The Community page is publicly readable. Registering an artist account enables
-publishing, likes, and comments. The artist name is written into `theme.json`, shown
-on gallery cards, and must match the signed-in profile when publishing. Community
+design submission, likes, and comments. The artist name is written into `theme.json`,
+shown on gallery cards, and must match the signed-in profile when submitting. Community
 submissions require an enabled dial watermark; the Pi renderer draws it over the
 upper dial without baking it into the loop video.
 
-Published packages become visible immediately. Signed-in users can report a design,
-and administrators have a private dashboard for hide/restore, account suspension,
-report resolution, and audit review. Email verification, password reset, and
-pre-publication approval are not part of the soft opening.
+New packages enter a private review queue. The administrator receives an email,
+reviews the preview and downloadable package, and then approves or rejects the
+submission with a recorded reason. Only approved packages appear in the gallery.
+Signed-in users can report a published design, and administrators can also
+hide/restore designs, suspend accounts, resolve reports, and inspect the audit log.
+Email verification and password reset are not part of the soft opening.
 
 ## Build And Test
 

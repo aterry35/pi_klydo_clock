@@ -117,8 +117,9 @@ A 480×800 window opens with the sample design. **Controls:** click/tap the top 
 
 The public production designer is available at
 <https://designer.18-191-209-51.sslip.io>. Local editing and ZIP export do not
-require an account. Publishing to the Community page requires an artist account;
-published packages, previews, likes, and comments are stored by the community API.
+require an account. Submitting to the Community page requires an artist account.
+New packages remain private until an administrator reviews and approves them;
+approved packages, previews, likes, and comments are stored by the community API.
 
 ```bash
 cd Tools/clock-design-creator-app/app

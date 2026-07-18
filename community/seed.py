@@ -66,8 +66,9 @@ def seed(data_dir: Path, designs_dir: Path) -> int:
         db.execute(
             """
             INSERT INTO designs
-                (id, user_id, slug, title, description, license, package_path, preview_path, package_bytes, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, user_id, slug, title, description, license, package_path,
+                 preview_path, package_bytes, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)
             """,
             (
                 design_id,

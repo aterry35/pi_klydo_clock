@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  CircleGauge, Eye, EyeOff, Flag, History, LayoutDashboard, LogOut,
-  RefreshCw, ShieldCheck, UserCheck, UserRound, UserX, X,
+  Check, CircleGauge, ClipboardCheck, Download, Eye, EyeOff, Flag, History,
+  LogOut, RefreshCw, RotateCcw, ShieldCheck, UserCheck, UserRound, UserX, X,
 } from 'lucide-react';
 import { apiRequest } from './api.js';
 
 const TABS = [
+  ['review', ClipboardCheck, 'Review'],
   ['reports', Flag, 'Reports'],
   ['designs', Eye, 'Designs'],
   ['users', UserRound, 'Artists'],
@@ -48,7 +49,7 @@ function AdminHeader({ session, onCreate, onCommunity, onLogout }) {
 }
 
 export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
-  const [tab, setTab] = useState('reports');
+  const [tab, setTab] = useState('review');
   const [data, setData] = useState({ summary: null, reports: [], designs: [], users: [], actions: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,13 +96,22 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
     }
   };
 
-  const designAction = (design, status) => setPending({
-    title: status === 'hidden' ? 'Hide design' : 'Restore design',
-    label: `${design.title} by ${design.artistName}`,
-    confirmLabel: status === 'hidden' ? 'Hide design' : 'Restore design',
-    path: `/api/admin/designs/${design.id}/status`,
-    body: (reason) => ({ status, reason }),
-  });
+  const designAction = (design, status) => {
+    const labels = {
+      published: design.status === 'pending_review' ? ['Approve design', 'Approve'] : ['Restore design', 'Restore'],
+      rejected: ['Reject design', 'Reject'],
+      hidden: ['Hide design', 'Hide design'],
+      pending_review: ['Reopen review', 'Reopen review'],
+    };
+    const [title, confirmLabel] = labels[status];
+    setPending({
+      title,
+      label: `${design.title} by ${design.artistName}`,
+      confirmLabel,
+      path: `/api/admin/designs/${design.id}/status`,
+      body: (reason) => ({ status, reason }),
+    });
+  };
 
   const userAction = (user, status) => setPending({
     title: status === 'suspended' ? 'Suspend artist' : 'Restore artist',
@@ -119,6 +129,8 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
     body: (resolution) => ({ status, resolution }),
   });
 
+  const reviewDesigns = data.designs.filter((design) => design.status === 'pending_review');
+
   return (
     <main className="community-shell admin-shell">
       <AdminHeader session={session} onCreate={onCreate} onCommunity={onCommunity} onLogout={onLogout} />
@@ -129,7 +141,9 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
       {data.summary && (
         <section className="admin-metrics" aria-label="Community status">
           <article><span>Open reports</span><strong>{data.summary.openReports}</strong></article>
+          <article><span>Awaiting review</span><strong>{data.summary.pendingDesigns}</strong></article>
           <article><span>Published</span><strong>{data.summary.publishedDesigns}</strong></article>
+          <article><span>Rejected</span><strong>{data.summary.rejectedDesigns}</strong></article>
           <article><span>Hidden</span><strong>{data.summary.hiddenDesigns}</strong></article>
           <article><span>Active artists</span><strong>{data.summary.activeUsers}</strong></article>
           <article><span>Suspended</span><strong>{data.summary.suspendedUsers}</strong></article>
@@ -143,6 +157,24 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
       {error && <div className="gallery-status error">{error}</div>}
       {!loading && !error && (
         <section className="admin-content">
+          {tab === 'review' && (
+            <div className="admin-list review-list">
+              {reviewDesigns.length === 0 && <div className="admin-empty">No designs are awaiting review.</div>}
+              {reviewDesigns.map((design) => (
+                <article key={design.id} className="attention">
+                  <div className="review-design-row">
+                    <img src={design.previewUrl} alt={`${design.title} preview`} />
+                    <div>
+                      <div className="admin-row-main"><div><strong>{design.title}</strong><span>by {design.artistName}</span></div><span className="status-badge pending_review">pending review</span></div>
+                      <p>{design.description || 'No description provided.'}</p>
+                      <div className="admin-meta"><span>{design.license}</span><span>{Math.ceil(design.packageBytes / 1024)} KB</span><span>{new Date(design.createdAt).toLocaleString()}</span></div>
+                      <div className="admin-buttons"><a href={design.downloadUrl}><Download size={14} />Download package</a><button type="button" className="approve" onClick={() => designAction(design, 'published')}><Check size={14} />Approve</button><button type="button" className="danger" onClick={() => designAction(design, 'rejected')}><X size={14} />Reject</button></div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
           {tab === 'reports' && (
             <div className="admin-list">
               {data.reports.length === 0 && <div className="admin-empty">No reports.</div>}
@@ -160,10 +192,16 @@ export function AdminPage({ session, onCreate, onCommunity, onLogout }) {
           {tab === 'designs' && (
             <div className="admin-list">
               {data.designs.map((design) => (
-                <article key={design.id} className={design.status === 'hidden' ? 'muted' : ''}>
-                  <div className="admin-design-row"><img src={design.previewUrl} alt="" /><div className="admin-row-main"><div><strong>{design.title}</strong><span>by {design.artistName}</span></div><span className={`status-badge ${design.status}`}>{design.status}</span></div></div>
+                <article key={design.id} className={['hidden', 'rejected'].includes(design.status) ? 'muted' : ''}>
+                  <div className="admin-design-row"><img src={design.previewUrl} alt="" /><div className="admin-row-main"><div><strong>{design.title}</strong><span>by {design.artistName}</span></div><span className={`status-badge ${design.status}`}>{design.status.replaceAll('_', ' ')}</span></div></div>
                   <div className="admin-meta"><span>{design.openReportCount} open reports</span><span>{design.downloads} downloads</span></div>
-                  <div className="admin-buttons">{design.status === 'published' ? <button type="button" className="danger" onClick={() => designAction(design, 'hidden')}><EyeOff size={14} />Hide</button> : <button type="button" onClick={() => designAction(design, 'published')}><Eye size={14} />Restore</button>}</div>
+                  {design.reviewReason && <p className="admin-resolution">{design.reviewReason}{design.reviewedByName ? ` — ${design.reviewedByName}` : ''}</p>}
+                  <div className="admin-buttons">
+                    {design.status === 'published' && <button type="button" className="danger" onClick={() => designAction(design, 'hidden')}><EyeOff size={14} />Hide</button>}
+                    {design.status === 'hidden' && <button type="button" onClick={() => designAction(design, 'published')}><Eye size={14} />Restore</button>}
+                    {design.status === 'pending_review' && <><button type="button" className="approve" onClick={() => designAction(design, 'published')}><Check size={14} />Approve</button><button type="button" className="danger" onClick={() => designAction(design, 'rejected')}><X size={14} />Reject</button></>}
+                    {design.status === 'rejected' && <button type="button" onClick={() => designAction(design, 'pending_review')}><RotateCcw size={14} />Reopen review</button>}
+                  </div>
                 </article>
               ))}
             </div>

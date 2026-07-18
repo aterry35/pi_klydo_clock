@@ -72,15 +72,15 @@ export function PublishDialog({ open, onClose, project, session, busy, error, on
   const creatorMatches = project.creator.artist.trim() === session.user.artistName;
   const canPublish = creatorMatches && watermark.enabled && watermark.text.trim();
   return (
-    <Modal title="Publish to community" onClose={onClose}>
+    <Modal title="Submit for review" onClose={onClose}>
       <form className="dialog-form" onSubmit={(event) => { event.preventDefault(); onPublish({ description, license: licenseName }); }}>
         <div className="publish-identity"><UserRound size={16} /><div><strong>{project.creator.artist || session.user.artistName}</strong><span>Watermark: {watermark.text || 'Not set'}</span></div></div>
-        {!canPublish && <div className="notice error">Use your profile artist name and enable a watermark in Setup before publishing.</div>}
+        {!canPublish && <div className="notice error">Use your profile artist name and enable a watermark in Setup before submitting.</div>}
         <label><span>Description</span><textarea maxLength="600" rows="4" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What inspired this clock design?" /></label>
         <label><span>License</span><select value={licenseName} onChange={(event) => setLicenseName(event.target.value)}><option>CC BY-NC 4.0</option><option>CC BY 4.0</option><option>Personal use only</option></select></label>
-        <p className="dialog-note">The validated ZIP, preview, artist credit, and visible dial watermark will be published together.</p>
+        <p className="dialog-note">The validated ZIP, preview, artist credit, and visible dial watermark will be sent to the administrator. The design stays private until approved.</p>
         {error && <div className="notice error">{error}</div>}
-        <button className="primary-button dialog-submit" type="submit" disabled={busy || !canPublish}>{busy ? 'Encoding and publishing...' : 'Publish design'}</button>
+        <button className="primary-button dialog-submit" type="submit" disabled={busy || !canPublish}>{busy ? 'Encoding submission...' : 'Submit for review'}</button>
       </form>
     </Modal>
   );
@@ -194,7 +194,7 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
   );
 }
 
-export function CommunityPage({ session, onCreate, onAdmin, onAuth, onLogout }) {
+export function CommunityPage({ session, notice, onDismissNotice, onCreate, onAdmin, onAuth, onLogout }) {
   const [designs, setDesigns] = useState([]);
   const [sort, setSort] = useState('new');
   const [query, setQuery] = useState('');
@@ -230,6 +230,7 @@ export function CommunityPage({ session, onCreate, onAdmin, onAuth, onLogout }) 
         <label className="gallery-search"><Search size={16} /><input aria-label="Search designs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or artist" /></label>
         <div className="segment gallery-sort" aria-label="Gallery sort"><button className={sort === 'new' ? 'active' : ''} type="button" onClick={() => setSort('new')}>Newest</button><button className={sort === 'popular' ? 'active' : ''} type="button" onClick={() => setSort('popular')}>Popular</button></div>
       </section>
+      {notice && <div className="community-notice notice report-success">{notice}<button className="icon-button" type="button" title="Dismiss" onClick={onDismissNotice}><X size={14} /></button></div>}
       {loading && <div className="gallery-status">Loading designs...</div>}
       {error && <div className="gallery-status error">{error}</div>}
       {!loading && !error && designs.length === 0 && <div className="gallery-status">No matching designs.</div>}

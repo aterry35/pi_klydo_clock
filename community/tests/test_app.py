@@ -74,6 +74,27 @@ class CommunityApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.get_json())
         return response.get_json()
 
+    def promote_admin(self, client, email: str = "admin@example.com") -> dict[str, object]:
+        payload = self.register(email, client=client, artist="Administrator")
+        db = sqlite3.connect(self.database)
+        db.execute("UPDATE users SET role = 'admin' WHERE email = ?", (email,))
+        db.commit()
+        db.close()
+        return payload
+
+    def submit_design(self, client, csrf: str, *, title: str = "Community Test"):
+        return client.post(
+            "/api/designs",
+            data={
+                "title": title,
+                "description": "A validated test design.",
+                "license": "CC BY-NC 4.0",
+                "package": (io.BytesIO(design_zip()), "community-test.zip"),
+            },
+            headers={"X-CSRF-Token": csrf},
+            content_type="multipart/form-data",
+        )
+
     def test_register_login_and_profile(self) -> None:
         registered = self.register()
         self.assertEqual(registered["user"]["artistName"], "Test Artist")
@@ -86,21 +107,47 @@ class CommunityApiTest(unittest.TestCase):
         self.assertEqual(update.status_code, 200)
         self.assertEqual(update.get_json()["user"]["watermark"], "Updated")
 
-    def test_publish_like_comment_and_download(self) -> None:
+    def test_submission_requires_approval_before_public_interaction(self) -> None:
         csrf = self.register()["csrfToken"]
-        published = self.client.post(
-            "/api/designs",
-            data={
-                "title": "Community Test",
-                "description": "A validated test design.",
-                "license": "CC BY-NC 4.0",
-                "package": (io.BytesIO(design_zip()), "community-test.zip"),
-            },
-            headers={"X-CSRF-Token": csrf},
-            content_type="multipart/form-data",
+        submitted = self.submit_design(self.client, csrf)
+        self.assertEqual(submitted.status_code, 201, submitted.get_json())
+        self.assertEqual(submitted.get_json()["design"]["status"], "pending_review")
+        design_id = submitted.get_json()["design"]["id"]
+
+        public = self.app.test_client()
+        self.assertEqual(public.get(f"/api/designs/{design_id}").status_code, 404)
+        self.assertEqual(public.get("/api/designs").get_json()["designs"], [])
+
+        admin = self.app.test_client()
+        admin_payload = self.promote_admin(admin)
+        pending = admin.get("/api/admin/designs?status=pending_review").get_json()["designs"]
+        self.assertEqual([item["id"] for item in pending], [design_id])
+        preview = admin.get(pending[0]["previewUrl"])
+        try:
+            self.assertEqual(preview.status_code, 200)
+        finally:
+            preview.close()
+        package = admin.get(pending[0]["downloadUrl"])
+        try:
+            self.assertEqual(package.status_code, 200)
+        finally:
+            package.close()
+
+        invalid = admin.post(
+            f"/api/admin/designs/{design_id}/status",
+            json={"status": "hidden", "reason": "Invalid transition test."},
+            headers={"X-CSRF-Token": admin_payload["csrfToken"]},
         )
-        self.assertEqual(published.status_code, 201, published.get_json())
-        design_id = published.get_json()["design"]["id"]
+        self.assertEqual(invalid.status_code, 409)
+        approved = admin.post(
+            f"/api/admin/designs/{design_id}/status",
+            json={"status": "published", "reason": "Preview and package reviewed."},
+            headers={"X-CSRF-Token": admin_payload["csrfToken"]},
+        )
+        self.assertEqual(approved.status_code, 200, approved.get_json())
+        self.assertEqual(approved.get_json()["design"]["status"], "published")
+        self.assertEqual(approved.get_json()["design"]["reviewReason"], "Preview and package reviewed.")
+        self.assertIsNotNone(approved.get_json()["design"]["reviewedAt"])
 
         like = self.client.put(
             f"/api/designs/{design_id}/like", headers={"X-CSRF-Token": csrf}
@@ -122,6 +169,8 @@ class CommunityApiTest(unittest.TestCase):
             self.assertEqual(download.status_code, 200)
         finally:
             download.close()
+        actions = admin.get("/api/admin/actions").get_json()["actions"]
+        self.assertEqual(actions[0]["action"], "approve_design")
 
     def test_rejects_invalid_package_and_anonymous_publish(self) -> None:
         anonymous = self.client.post("/api/designs", data={})
@@ -143,18 +192,17 @@ class CommunityApiTest(unittest.TestCase):
     def test_report_admin_hide_suspend_resolve_and_audit(self) -> None:
         owner = self.app.test_client()
         owner_csrf = self.register(client=owner)["csrfToken"]
-        published = owner.post(
-            "/api/designs",
-            data={
-                "title": "Reported Design",
-                "description": "A design used for moderation tests.",
-                "license": "CC BY-NC 4.0",
-                "package": (io.BytesIO(design_zip()), "reported.zip"),
-            },
-            headers={"X-CSRF-Token": owner_csrf},
-            content_type="multipart/form-data",
+        submitted = self.submit_design(owner, owner_csrf, title="Reported Design")
+        design_id = submitted.get_json()["design"]["id"]
+
+        admin = self.app.test_client()
+        admin_payload = self.promote_admin(admin)
+        approved = admin.post(
+            f"/api/admin/designs/{design_id}/status",
+            json={"status": "published", "reason": "Approved for moderation test."},
+            headers={"X-CSRF-Token": admin_payload["csrfToken"]},
         )
-        design_id = published.get_json()["design"]["id"]
+        self.assertEqual(approved.status_code, 200, approved.get_json())
 
         reporter = self.app.test_client()
         reporter_payload = self.register(
@@ -168,12 +216,7 @@ class CommunityApiTest(unittest.TestCase):
         self.assertEqual(report.status_code, 201, report.get_json())
         report_id = report.get_json()["report"]["id"]
 
-        admin = self.app.test_client()
-        admin_payload = self.register(
-            "admin@example.com", client=admin, artist="Administrator"
-        )
         db = sqlite3.connect(self.database)
-        db.execute("UPDATE users SET role = 'admin' WHERE email = 'admin@example.com'")
         reporter_id = db.execute(
             "SELECT id FROM users WHERE email = 'reporter@example.com'"
         ).fetchone()[0]
@@ -215,23 +258,13 @@ class CommunityApiTest(unittest.TestCase):
         self.assertEqual(resolved.status_code, 200)
         actions = admin.get("/api/admin/actions").get_json()["actions"]
         self.assertEqual({item["action"] for item in actions}, {
-            "hide_design", "suspend_user", "resolve_report"
+            "approve_design", "hide_design", "suspend_user", "resolve_report"
         })
 
     def test_agent_token_can_read_and_moderate_as_admin(self) -> None:
         owner_csrf = self.register()["csrfToken"]
-        published = self.client.post(
-            "/api/designs",
-            data={
-                "title": "Agent Review",
-                "description": "A design reviewed by the private agent.",
-                "license": "Personal use only",
-                "package": (io.BytesIO(design_zip()), "agent-review.zip"),
-            },
-            headers={"X-CSRF-Token": owner_csrf},
-            content_type="multipart/form-data",
-        )
-        design_id = published.get_json()["design"]["id"]
+        submitted = self.submit_design(self.client, owner_csrf, title="Agent Review")
+        design_id = submitted.get_json()["design"]["id"]
         db = sqlite3.connect(self.database)
         db.execute("UPDATE users SET role = 'admin' WHERE email = 'artist@example.com'")
         db.commit()
@@ -243,14 +276,16 @@ class CommunityApiTest(unittest.TestCase):
         )
         headers = {"Authorization": "Bearer agent-secret"}
         self.assertEqual(self.client.get("/api/admin/summary", headers=headers).status_code, 200)
-        hidden = self.client.post(
+        rejected = self.client.post(
             f"/api/admin/designs/{design_id}/status",
-            json={"status": "hidden", "reason": "Automated package validation failed."},
+            json={"status": "rejected", "reason": "Automated package validation failed."},
             headers=headers,
         )
-        self.assertEqual(hidden.status_code, 200, hidden.get_json())
+        self.assertEqual(rejected.status_code, 200, rejected.get_json())
+        self.assertEqual(rejected.get_json()["design"]["status"], "rejected")
         actions = self.client.get("/api/admin/actions", headers=headers).get_json()["actions"]
         self.assertEqual(actions[0]["actorName"], "agent:aterry45")
+        self.assertEqual(actions[0]["action"], "reject_design")
 
     def test_existing_database_receives_moderation_columns(self) -> None:
         old_database = Path(self.temp.name) / "old.sqlite3"
@@ -267,9 +302,11 @@ class CommunityApiTest(unittest.TestCase):
         db.close()
         init_database(old_database)
         db = sqlite3.connect(old_database)
-        columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+        user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+        design_columns = {row[1] for row in db.execute("PRAGMA table_info(designs)")}
         db.close()
-        self.assertTrue({"role", "status", "suspended_at", "suspension_reason"} <= columns)
+        self.assertTrue({"role", "status", "suspended_at", "suspension_reason"} <= user_columns)
+        self.assertTrue({"reviewed_at", "reviewed_by_user_id", "review_reason"} <= design_columns)
 
 
 if __name__ == "__main__":

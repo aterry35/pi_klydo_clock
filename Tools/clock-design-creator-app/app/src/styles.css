@@ -214,6 +214,8 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .report-button { display: inline-flex; align-items: center; gap: 6px; margin: -8px 0 18px; padding: 5px 0; color: #989ba4; background: transparent; border: 0; font-size: 10px; cursor: pointer; }
 .report-button:hover { color: #ef8a80; }
 .notice.report-success { margin-top: -8px; color: #82c499; background: #17241c; border-color: #58b87e; }
+.community-notice { width: min(1080px, calc(100% - 36px)); margin: 18px auto 0 !important; display: flex; align-items: center; gap: 12px; }
+.community-notice .icon-button { width: 28px; height: 28px; margin-left: auto; flex: 0 0 28px; }
 .design-detail-content h3 { margin: 0 0 8px; font-size: 12px; }
 .comment-list { max-height: 220px; overflow-y: auto; border-top: 1px solid #2b2d33; }
 .comment-list article { padding: 9px 0; border-bottom: 1px solid #27292f; }
@@ -227,7 +229,7 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .admin-heading > div { flex: 1; }
 .admin-heading h1 { margin: 0; color: #ead8ae; font-family: Georgia, serif; font-size: 26px; font-style: italic; }
 .admin-heading p { margin: 4px 0 0; color: #858892; font-size: 10px; }
-.admin-metrics { display: grid; grid-template-columns: repeat(6, minmax(105px, 1fr)); gap: 10px; padding: 0 clamp(18px, 4vw, 58px) 20px; }
+.admin-metrics { display: grid; grid-template-columns: repeat(4, minmax(105px, 1fr)); gap: 10px; padding: 0 clamp(18px, 4vw, 58px) 20px; }
 .admin-metrics article { min-width: 0; padding: 12px; background: #18191d; border: 1px solid #303238; border-radius: 6px; }
 .admin-metrics span, .admin-metrics strong { display: block; }
 .admin-metrics span { overflow: hidden; color: #858892; font-size: 9px; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
@@ -250,15 +252,23 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .status-badge { flex: 0 0 auto; padding: 4px 7px; color: #a9acb5 !important; background: #23252a; border: 1px solid #383a41; border-radius: 10px; font-size: 8.5px !important; text-transform: uppercase; }
 .status-badge.open, .status-badge.hidden, .status-badge.suspended { color: #ef9a8f !important; border-color: #653a37; }
 .status-badge.published, .status-badge.active, .status-badge.resolved { color: #82c499 !important; border-color: #31533e; }
+.status-badge.pending_review { color: #e9c37f !important; border-color: #6b552c; }
+.status-badge.rejected { color: #ef9a8f !important; border-color: #653a37; }
 .admin-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: #747780; font-size: 9px; }
 .admin-meta code { color: #8d9099; font-size: 8.5px; }
 .admin-resolution { padding: 7px 9px; color: #9fa2aa !important; background: #111216; border-left: 2px solid #565961; }
 .admin-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 9px; border-top: 1px solid #292b30; }
 .admin-buttons button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; color: #d7d9df; background: #23252a; border: 1px solid #3a3c43; border-radius: 5px; font-size: 9.5px; cursor: pointer; }
+.admin-buttons a { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; color: #d7d9df; background: #23252a; border: 1px solid #3a3c43; border-radius: 5px; font-size: 9.5px; text-decoration: none; }
 .admin-buttons button:hover { border-color: #80632d; }
+.admin-buttons a:hover { border-color: #80632d; }
+.admin-buttons button.approve { color: #82c499; border-color: #31533e; }
 .admin-buttons button.danger { color: #ef9a8f; border-color: #653a37; }
 .admin-design-row { display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 11px; }
 .admin-design-row img { width: 42px; height: 70px; object-fit: cover; background: #050505; border: 1px solid #2f3137; border-radius: 4px; }
+.review-design-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 16px; }
+.review-design-row > img { width: 100%; aspect-ratio: 3 / 5; object-fit: contain; background: #050505; border: 1px solid #2f3137; border-radius: 4px; }
+.review-design-row > div { min-width: 0; }
 .admin-empty { padding: 38px; color: #858892; text-align: center; }
 .audit-list .admin-row-main > span { flex: 0 0 auto; margin: 0; }
 .admin-action-dialog { width: min(460px, 100%); }
@@ -275,6 +285,7 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
   .admin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-tabs { overflow-x: auto; }
   .admin-tabs button { flex: 1; min-width: 90px; justify-content: center; }
+  .review-design-row { grid-template-columns: 100px 1fr; }
 }
 
 @media (max-width: 1080px) {
