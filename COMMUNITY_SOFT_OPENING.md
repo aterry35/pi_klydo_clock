@@ -15,6 +15,10 @@ while registration is required for publishing, likes, and comments.
 - Validated ZIP and preview upload from the designer.
 - Searchable gallery with newest, most liked, and most downloaded sorting.
 - Design detail, comments, likes, and direct package downloads.
+- Community reporting for copyright, inappropriate content, spam, broken packages,
+  and other issues.
+- Private administration for report resolution, design hide/restore, artist
+  suspend/restore, and moderation audit history.
 - Bundled repository designs seeded into the gallery without changing `designs/`.
 - Upload size limits, ZIP path validation, request rate limits, CSRF protection,
   secure cookies, and same-origin checks.
@@ -22,9 +26,8 @@ while registration is required for publishing, likes, and comments.
 
 ## Current limits
 
-- New submissions are public immediately; there is no moderation queue.
+- New submissions are public immediately; reports are reviewed after publication.
 - Accounts do not yet have email verification or password recovery.
-- There is no delete/report/admin interface in the public application.
 - SQLite, packages, previews, and backups live on one EC2 instance.
 - Local backups do not protect against instance or volume loss.
 - No CDN, object storage, autoscaling, or multi-instance API is configured.
@@ -51,6 +54,6 @@ machine or S3 before inviting a wider audience.
 ## Promotion criteria
 
 Move uploads and previews to S3, add off-host database backups, email verification,
-password recovery, content reporting/moderation, and error monitoring before a broad
-launch. PostgreSQL becomes appropriate when traffic or concurrent writes outgrow the
-single-instance SQLite service.
+password recovery, a pre-publication review option, and error monitoring before a
+broad launch. PostgreSQL becomes appropriate when traffic or concurrent writes
+outgrow the single-instance SQLite service.

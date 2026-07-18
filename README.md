@@ -16,7 +16,8 @@ designer that exports installable clock-face packages.
 - DS3231 RTC support, NTP synchronization, and SoftAP Wi-Fi provisioning.
 - Four-second dial hold opens an on-device network recovery panel.
 - React/Vite designer with deterministic H.264 export and package validation.
-- Public community gallery with artist profiles, watermarks, likes, comments, and ZIP downloads.
+- Public community gallery with artist profiles, watermarks, likes, comments, reports, and ZIP downloads.
+- Private moderation dashboard with hide/restore, artist suspension, and an audit history.
 
 The target enclosure uses a **480 x 800** display behind two circular cutouts:
 

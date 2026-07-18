@@ -4,6 +4,7 @@ import {
   LoaderCircle, LogIn, LogOut, Pause, Play, Settings2, SlidersHorizontal,
   Sparkles, Upload, UploadCloud, UserRound,
 } from 'lucide-react';
+import { AdminPage } from './Admin.jsx';
 import { apiRequest } from './api.js';
 import { AuthDialog, CommunityPage, PublishDialog } from './Community.jsx';
 import { applyTemplate, createInitialState, TEMPLATES } from './defaults.js';
@@ -127,7 +128,10 @@ function FileButton({ accept, onChange, icon: Icon = Upload, children }) {
 }
 
 export default function App() {
-  const [view, setView] = useState(() => (window.location.hash === '#community' ? 'community' : 'designer'));
+  const [view, setView] = useState(() => (
+    window.location.hash === '#admin' ? 'admin'
+      : window.location.hash === '#community' ? 'community' : 'designer'
+  ));
   const [session, setSession] = useState({ user: null, csrfToken: null, loading: true });
   const [authOpen, setAuthOpen] = useState(false);
   const [publishAfterAuth, setPublishAfterAuth] = useState(false);
@@ -171,10 +175,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => setView(window.location.hash === '#community' ? 'community' : 'designer');
+    const onHashChange = () => setView(
+      window.location.hash === '#admin' ? 'admin'
+        : window.location.hash === '#community' ? 'community' : 'designer',
+    );
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  useEffect(() => {
+    if (!session.loading && view === 'admin' && session.user?.role !== 'admin') {
+      setView('community');
+      window.location.hash = 'community';
+    }
+  }, [session.loading, session.user?.role, view]);
 
   useEffect(() => {
     if (!session.user) return;
@@ -443,7 +457,7 @@ export default function App() {
 
   const changeView = (nextView) => {
     setView(nextView);
-    window.location.hash = nextView === 'community' ? 'community' : 'designer';
+    window.location.hash = nextView;
   };
 
   const handleAuthenticated = (payload) => {
@@ -513,11 +527,23 @@ export default function App() {
         <CommunityPage
           session={session}
           onCreate={() => changeView('designer')}
+          onAdmin={() => changeView('admin')}
           onAuth={() => setAuthOpen(true)}
           onLogout={logout}
         />
         <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
       </>
+    );
+  }
+
+  if (view === 'admin' && session.user?.role === 'admin') {
+    return (
+      <AdminPage
+        session={session}
+        onCreate={() => changeView('designer')}
+        onCommunity={() => changeView('community')}
+        onLogout={logout}
+      />
     );
   }
 
@@ -529,6 +555,7 @@ export default function App() {
         <nav className="page-switch" aria-label="Application pages">
           <button type="button" className="active">Designer</button>
           <button type="button" onClick={() => changeView('community')}>Community</button>
+          {session.user?.role === 'admin' && <button type="button" onClick={() => changeView('admin')}>Admin</button>}
         </nav>
         <div className="package-name"><span>Package</span><code>{slugify(project.name) || 'untitled'}/</code></div>
         <div className="topbar-spacer" />

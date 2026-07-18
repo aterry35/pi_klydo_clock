@@ -39,10 +39,10 @@ on gallery cards, and must match the signed-in profile when publishing. Communit
 submissions require an enabled dial watermark; the Pi renderer draws it over the
 upper dial without baking it into the loop video.
 
-The initial service deliberately keeps moderation simple. Published packages become
-visible immediately, and there is no email verification, password reset, or public
-artist administration UI yet. Operators can remove content directly from the server
-if required during the soft opening.
+Published packages become visible immediately. Signed-in users can report a design,
+and administrators have a private dashboard for hide/restore, account suspension,
+report resolution, and audit review. Email verification, password reset, and
+pre-publication approval are not part of the soft opening.
 
 ## Build And Test
 

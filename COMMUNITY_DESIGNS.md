@@ -13,6 +13,11 @@ published designs. An artist account is required to publish, like, or comment.
 The exported ZIP format is the same whether it is downloaded locally or from the
 gallery.
 
+Signed-in users can report copyright concerns, inappropriate content, spam, broken
+packages, or other issues from the design detail view. Reports enter the private
+administrator queue. Hidden designs disappear from all public lists, previews, and
+downloads but remain available to administrators for review and restoration.
+
 ## Where To Put Designs
 
 The renderer scans these locations at startup:

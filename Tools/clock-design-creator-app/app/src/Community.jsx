@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  CircleGauge, Download, Heart, LogIn, LogOut, MessageCircle, Search, UserRound, X,
+  CircleGauge, Download, Flag, Heart, LogIn, LogOut, MessageCircle, Search,
+  UserRound, X,
 } from 'lucide-react';
 import { apiRequest } from './api.js';
 
@@ -85,13 +86,34 @@ export function PublishDialog({ open, onClose, project, session, busy, error, on
   );
 }
 
-function CommunityHeader({ session, onCreate, onAuth, onLogout }) {
+function ReportDialog({ open, design, busy, error, onClose, onSubmit }) {
+  const [reason, setReason] = useState('copyright');
+  const [details, setDetails] = useState('');
+  useEffect(() => {
+    if (open) { setReason('copyright'); setDetails(''); }
+  }, [open]);
+  if (!open) return null;
+  return (
+    <Modal title="Report design" onClose={onClose}>
+      <form className="dialog-form" onSubmit={(event) => { event.preventDefault(); onSubmit({ reason, details }); }}>
+        <p className="dialog-note">{design.title} by {design.artistName}</p>
+        <label><span>Reason</span><select value={reason} onChange={(event) => setReason(event.target.value)}><option value="copyright">Copyright or ownership</option><option value="inappropriate">Inappropriate content</option><option value="spam">Spam</option><option value="broken_package">Broken package</option><option value="other">Other</option></select></label>
+        <label><span>Details</span><textarea rows="5" maxLength="1000" required={reason === 'other'} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Add information that will help the administrator review this report." /></label>
+        {error && <div className="notice error">{error}</div>}
+        <button className="primary-button dialog-submit" type="submit" disabled={busy || (reason === 'other' && details.trim().length < 10)}>{busy ? 'Submitting...' : 'Submit report'}</button>
+      </form>
+    </Modal>
+  );
+}
+
+function CommunityHeader({ session, onCreate, onAdmin, onAuth, onLogout }) {
   return (
     <header className="community-topbar">
       <div className="brand"><CircleGauge size={22} /><strong>Clock Design Creator</strong></div>
       <nav className="page-switch" aria-label="Application pages">
         <button type="button" onClick={onCreate}>Designer</button>
         <button type="button" className="active">Community</button>
+        {session.user?.role === 'admin' && <button type="button" onClick={onAdmin}>Admin</button>}
       </nav>
       <div className="topbar-spacer" />
       {session.user ? (
@@ -106,6 +128,10 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reported, setReported] = useState(false);
   const load = async () => {
     try { setDesign((await apiRequest(`/api/designs/${designId}`)).design); }
     catch (requestError) { setError(requestError.message); }
@@ -124,6 +150,21 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
     } catch (requestError) { setError(requestError.message); }
     finally { setBusy(false); }
   };
+  const openReport = () => {
+    if (!session.user) { onAuth(); return; }
+    setReportError('');
+    setReportOpen(true);
+  };
+  const submitReport = async (payload) => {
+    setReportBusy(true);
+    setReportError('');
+    try {
+      await apiRequest(`/api/designs/${designId}/reports`, { method: 'POST', body: payload, csrfToken: session.csrfToken });
+      setReportOpen(false);
+      setReported(true);
+    } catch (requestError) { setReportError(requestError.message); }
+    finally { setReportBusy(false); }
+  };
   return (
     <Modal title={design?.title || 'Design details'} onClose={onClose} wide>
       {!design ? <div className="gallery-status">{error || 'Loading design...'}</div> : (
@@ -133,6 +174,8 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
             <div className="design-byline"><strong>{design.artistName}</strong><span>{design.license}</span></div>
             <p>{design.description || 'No description provided.'}</p>
             <a className="primary-button download-button" href={design.downloadUrl}><Download size={15} />Export for clock</a>
+            <button className="report-button" type="button" onClick={openReport}><Flag size={14} />Report design</button>
+            {reported && <div className="notice report-success">Report submitted for administrator review.</div>}
             <h3>Comments ({design.comments.length})</h3>
             <div className="comment-list">
               {design.comments.length === 0 && <p className="empty-comments">No comments yet.</p>}
@@ -146,11 +189,12 @@ function DesignDetail({ designId, session, onAuth, onClose, onChanged }) {
           </div>
         </div>
       )}
+      {design && <ReportDialog open={reportOpen} design={design} busy={reportBusy} error={reportError} onClose={() => setReportOpen(false)} onSubmit={submitReport} />}
     </Modal>
   );
 }
 
-export function CommunityPage({ session, onCreate, onAuth, onLogout }) {
+export function CommunityPage({ session, onCreate, onAdmin, onAuth, onLogout }) {
   const [designs, setDesigns] = useState([]);
   const [sort, setSort] = useState('new');
   const [query, setQuery] = useState('');
@@ -180,7 +224,7 @@ export function CommunityPage({ session, onCreate, onAuth, onLogout }) {
 
   return (
     <main className="community-shell">
-      <CommunityHeader session={session} onCreate={onCreate} onAuth={onAuth} onLogout={onLogout} />
+      <CommunityHeader session={session} onCreate={onCreate} onAdmin={onAdmin} onAuth={onAuth} onLogout={onLogout} />
       <section className="gallery-toolbar">
         <div><h1>Community clock designs</h1><p>Browse artist-made packages validated for the Pi Klydo Clock.</p></div>
         <label className="gallery-search"><Search size={16} /><input aria-label="Search designs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or artist" /></label>

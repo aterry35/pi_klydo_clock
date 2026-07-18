@@ -31,6 +31,15 @@ ALLOWED_LICENSES = {
     "CC BY-NC 4.0",
     "Personal use only",
 }
+REPORT_REASONS = {
+    "copyright",
+    "inappropriate",
+    "spam",
+    "broken_package",
+    "other",
+}
+DESIGN_STATUSES = {"published", "hidden"}
+USER_STATUSES = {"active", "suspended"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -39,6 +48,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     artist_name TEXT NOT NULL,
     watermark TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    status TEXT NOT NULL DEFAULT 'active',
+    suspended_at TEXT,
+    suspension_reason TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -79,8 +92,35 @@ CREATE TABLE IF NOT EXISTS comments (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    design_id TEXT NOT NULL REFERENCES designs(id) ON DELETE CASCADE,
+    reporter_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    details TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    resolution TEXT,
+    created_at TEXT NOT NULL,
+    resolved_at TEXT,
+    resolved_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS moderation_actions (
+    id TEXT PRIMARY KEY,
+    actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    actor_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_designs_created ON designs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_comments_design ON comments(design_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_actions_created ON moderation_actions(created_at DESC);
 """
 
 
@@ -137,11 +177,21 @@ def close_db(_error: BaseException | None = None) -> None:
         db.close()
 
 
+def ensure_column(db: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def init_database(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path)
     try:
         db.executescript(SCHEMA)
+        ensure_column(db, "users", "role", "TEXT NOT NULL DEFAULT 'member'")
+        ensure_column(db, "users", "status", "TEXT NOT NULL DEFAULT 'active'")
+        ensure_column(db, "users", "suspended_at", "TEXT")
+        ensure_column(db, "users", "suspension_reason", "TEXT")
         db.commit()
     finally:
         db.close()
@@ -158,7 +208,8 @@ def current_session() -> tuple[sqlite3.Row, sqlite3.Row] | None:
     row = get_db().execute(
         """
         SELECT s.token_hash, s.csrf_token, s.expires_at,
-               u.id, u.email, u.artist_name, u.watermark, u.created_at
+               u.id, u.email, u.artist_name, u.watermark, u.role, u.status,
+               u.suspended_at, u.suspension_reason, u.created_at
         FROM sessions s JOIN users u ON u.id = s.user_id
         WHERE s.token_hash = ? AND s.expires_at > ?
         """,
@@ -175,6 +226,8 @@ def public_user(row: sqlite3.Row) -> dict[str, object]:
         "email": row["email"],
         "artistName": row["artist_name"],
         "watermark": row["watermark"],
+        "role": row["role"],
+        "status": row["status"],
         "createdAt": row["created_at"],
     }
 
@@ -183,11 +236,75 @@ def require_auth(*, csrf: bool = False) -> tuple[sqlite3.Row, sqlite3.Row]:
     session = current_session()
     if not session:
         raise ApiError("Sign in is required.", 401)
+    if session[1]["status"] != "active":
+        raise ApiError("This account is suspended.", 403)
     if csrf and not secrets.compare_digest(
         request.headers.get("X-CSRF-Token", ""), session[0]["csrf_token"]
     ):
         raise ApiError("The session security token is missing or expired.", 403)
     return session
+
+
+def agent_admin(app: Flask) -> sqlite3.Row | None:
+    expected_hash = str(app.config.get("AGENT_TOKEN_HASH", ""))
+    authorization = request.headers.get("Authorization", "")
+    if not expected_hash or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[7:].strip()
+    if not token or not secrets.compare_digest(token_hash(token), expected_hash):
+        return None
+    email = str(app.config.get("AGENT_ADMIN_EMAIL", "")).strip().lower()
+    row = get_db().execute(
+        "SELECT * FROM users WHERE email = ? AND role = 'admin' AND status = 'active'",
+        (email,),
+    ).fetchone()
+    if not row:
+        raise ApiError("The agent administrator account is unavailable.", 403)
+    return row
+
+
+def require_admin(app: Flask, *, csrf: bool = False) -> tuple[sqlite3.Row, str, bool]:
+    agent = agent_admin(app)
+    if agent is not None:
+        agent_name = str(app.config.get("AGENT_NAME", "")).strip() or agent["artist_name"]
+        return agent, f"agent:{agent_name}", True
+    _session, user = require_auth(csrf=csrf)
+    if user["role"] != "admin":
+        raise ApiError("Administrator access is required.", 403)
+    return user, user["artist_name"], False
+
+
+def record_action(
+    db: sqlite3.Connection,
+    *,
+    actor: sqlite3.Row,
+    actor_name: str,
+    action: str,
+    target_type: str,
+    target_id: str,
+    reason: str,
+    metadata: dict[str, object] | None = None,
+) -> str:
+    action_id = str(uuid.uuid4())
+    db.execute(
+        """
+        INSERT INTO moderation_actions
+            (id, actor_user_id, actor_name, action, target_type, target_id, reason, metadata_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            action_id,
+            actor["id"],
+            actor_name,
+            action,
+            target_type,
+            target_id,
+            reason,
+            json.dumps(metadata or {}, sort_keys=True),
+            utc_now(),
+        ),
+    )
+    return action_id
 
 
 def require_same_origin(app: Flask) -> None:
@@ -284,9 +401,11 @@ def validate_design_zip(raw: bytes) -> tuple[str, bytes, dict[str, object]]:
     return roots.pop(), preview, theme
 
 
-def design_payload(row: sqlite3.Row, liked: bool = False) -> dict[str, object]:
+def design_payload(
+    row: sqlite3.Row, liked: bool = False, *, include_status: bool = False
+) -> dict[str, object]:
     design_id = row["id"]
-    return {
+    payload = {
         "id": design_id,
         "slug": row["slug"],
         "title": row["title"],
@@ -303,9 +422,15 @@ def design_payload(row: sqlite3.Row, liked: bool = False) -> dict[str, object]:
         "likedByMe": bool(liked),
         "createdAt": row["created_at"],
     }
+    if include_status:
+        payload["status"] = row["status"]
+        payload["userId"] = row["user_id"]
+    return payload
 
 
-def select_design(design_id: str, user_id: str | None = None) -> sqlite3.Row | None:
+def select_design(
+    design_id: str, user_id: str | None = None, *, include_hidden: bool = False
+) -> sqlite3.Row | None:
     return get_db().execute(
         """
         SELECT d.*, u.artist_name, u.watermark,
@@ -313,10 +438,22 @@ def select_design(design_id: str, user_id: str | None = None) -> sqlite3.Row | N
                (SELECT COUNT(*) FROM comments c WHERE c.design_id = d.id) AS comment_count,
                EXISTS(SELECT 1 FROM likes mine WHERE mine.design_id = d.id AND mine.user_id = ?) AS liked_by_me
         FROM designs d JOIN users u ON u.id = d.user_id
-        WHERE d.id = ? AND d.status = 'published'
+        WHERE d.id = ? AND (d.status = 'published' OR ?)
         """,
-        (user_id or "", design_id),
+        (user_id or "", design_id, int(include_hidden)),
     ).fetchone()
+
+
+def request_can_view_hidden(app: Flask) -> bool:
+    agent = agent_admin(app)
+    if agent is not None:
+        return True
+    session = current_session()
+    return bool(
+        session
+        and session[1]["role"] == "admin"
+        and session[1]["status"] == "active"
+    )
 
 
 def create_app(config: dict[str, object] | None = None) -> Flask:
@@ -330,6 +467,9 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
         ALLOWED_ORIGIN=os.environ.get(
             "PICLOCK_ALLOWED_ORIGIN", "https://designer.18-191-209-51.sslip.io"
         ),
+        AGENT_TOKEN_HASH=os.environ.get("PICLOCK_AGENT_TOKEN_HASH", ""),
+        AGENT_ADMIN_EMAIL=os.environ.get("PICLOCK_AGENT_ADMIN_EMAIL", ""),
+        AGENT_NAME=os.environ.get("PICLOCK_AGENT_NAME", ""),
         MAX_CONTENT_LENGTH=MAX_UPLOAD_BYTES + 1024 * 1024,
     )
     if config:
@@ -412,6 +552,8 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
         row = get_db().execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         if not row or not check_password_hash(row["password_hash"], password):
             raise ApiError("Email or password is incorrect.", 401)
+        if row["status"] != "active":
+            raise ApiError("This account is suspended.", 403)
         payload = {"user": public_user(row)}
         response = jsonify(payload)
         csrf = set_session_cookie(response, row["id"], app)
@@ -481,7 +623,9 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
     def get_design(design_id: str):
         session = current_session()
         user_id = session[1]["id"] if session else None
-        row = select_design(design_id, user_id)
+        row = select_design(
+            design_id, user_id, include_hidden=request_can_view_hidden(app)
+        )
         if not row:
             raise ApiError("Design not found.", 404)
         comments = get_db().execute(
@@ -561,7 +705,7 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
 
     @app.get("/api/designs/<design_id>/preview")
     def design_preview(design_id: str):
-        row = select_design(design_id)
+        row = select_design(design_id, include_hidden=request_can_view_hidden(app))
         if not row:
             raise ApiError("Design not found.", 404)
         path = Path(row["preview_path"])
@@ -573,7 +717,7 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
 
     @app.get("/api/designs/<design_id>/download")
     def download_design(design_id: str):
-        row = select_design(design_id)
+        row = select_design(design_id, include_hidden=request_can_view_hidden(app))
         if not row:
             raise ApiError("Design not found.", 404)
         path = Path(row["package_path"])
@@ -641,6 +785,332 @@ def create_app(config: dict[str, object] | None = None) -> Flask:
                 }
             }
         ), 201
+
+    @app.post("/api/designs/<design_id>/reports")
+    def report_design(design_id: str):
+        _session, user = require_auth(csrf=True)
+        user_key = f"report-user:{user['id']}"
+        ip_key = f"report-ip:{request.remote_addr}"
+        if not limiter.allow(user_key, limit=8, window_seconds=86400) or not limiter.allow(
+            ip_key, limit=30, window_seconds=86400
+        ):
+            raise ApiError("Report limit reached. Try again tomorrow.", 429)
+        design = select_design(design_id, user["id"])
+        if not design:
+            raise ApiError("Design not found.", 404)
+        if design["user_id"] == user["id"]:
+            raise ApiError("You cannot report your own design.")
+        payload = request.get_json(silent=True) or {}
+        reason = str(payload.get("reason", "")).strip()
+        if reason not in REPORT_REASONS:
+            raise ApiError("Choose a valid report reason.")
+        details = clean_text(payload.get("details"), minimum=0, maximum=1000, field="Details")
+        if reason == "other" and len(details) < 10:
+            raise ApiError("Describe the issue when choosing Other.")
+        duplicate = get_db().execute(
+            """
+            SELECT id FROM reports
+            WHERE design_id = ? AND reporter_user_id = ? AND status = 'open'
+            """,
+            (design_id, user["id"]),
+        ).fetchone()
+        if duplicate:
+            raise ApiError("You already have an open report for this design.", 409)
+        report_id = str(uuid.uuid4())
+        created = utc_now()
+        get_db().execute(
+            """
+            INSERT INTO reports
+                (id, design_id, reporter_user_id, reason, details, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (report_id, design_id, user["id"], reason, details, created),
+        )
+        get_db().commit()
+        return jsonify({"report": {"id": report_id, "status": "open", "createdAt": created}}), 201
+
+    @app.get("/api/admin/summary")
+    def admin_summary():
+        require_admin(app)
+        db = get_db()
+        row = db.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM designs WHERE status = 'published') AS published_designs,
+              (SELECT COUNT(*) FROM designs WHERE status = 'hidden') AS hidden_designs,
+              (SELECT COUNT(*) FROM reports WHERE status = 'open') AS open_reports,
+              (SELECT COUNT(*) FROM users WHERE status = 'active') AS active_users,
+              (SELECT COUNT(*) FROM users WHERE status = 'suspended') AS suspended_users,
+              (SELECT COALESCE(SUM(downloads), 0) FROM designs) AS total_downloads
+            """
+        ).fetchone()
+        return jsonify(
+            {
+                "summary": {
+                    "publishedDesigns": row["published_designs"],
+                    "hiddenDesigns": row["hidden_designs"],
+                    "openReports": row["open_reports"],
+                    "activeUsers": row["active_users"],
+                    "suspendedUsers": row["suspended_users"],
+                    "totalDownloads": row["total_downloads"],
+                }
+            }
+        )
+
+    @app.get("/api/admin/reports")
+    def admin_reports():
+        require_admin(app)
+        status = request.args.get("status", "open")
+        if status not in {"open", "resolved", "dismissed", "all"}:
+            raise ApiError("Choose a valid report status.")
+        condition = "" if status == "all" else "WHERE r.status = ?"
+        params: tuple[object, ...] = () if status == "all" else (status,)
+        rows = get_db().execute(
+            f"""
+            SELECT r.*, d.title, d.status AS design_status,
+                   owner.artist_name AS design_artist,
+                   reporter.artist_name AS reporter_name,
+                   resolver.artist_name AS resolver_name
+            FROM reports r
+            JOIN designs d ON d.id = r.design_id
+            JOIN users owner ON owner.id = d.user_id
+            JOIN users reporter ON reporter.id = r.reporter_user_id
+            LEFT JOIN users resolver ON resolver.id = r.resolved_by_user_id
+            {condition}
+            ORDER BY CASE WHEN r.status = 'open' THEN 0 ELSE 1 END, r.created_at ASC
+            LIMIT 250
+            """,
+            params,
+        ).fetchall()
+        return jsonify(
+            {
+                "reports": [
+                    {
+                        "id": row["id"],
+                        "designId": row["design_id"],
+                        "designTitle": row["title"],
+                        "designArtist": row["design_artist"],
+                        "designStatus": row["design_status"],
+                        "reporterName": row["reporter_name"],
+                        "reason": row["reason"],
+                        "details": row["details"],
+                        "status": row["status"],
+                        "resolution": row["resolution"],
+                        "resolverName": row["resolver_name"],
+                        "createdAt": row["created_at"],
+                        "resolvedAt": row["resolved_at"],
+                    }
+                    for row in rows
+                ]
+            }
+        )
+
+    @app.get("/api/admin/designs")
+    def admin_designs():
+        admin, _actor_name, _is_agent = require_admin(app)
+        status = request.args.get("status", "all")
+        if status not in DESIGN_STATUSES | {"all"}:
+            raise ApiError("Choose a valid design status.")
+        condition = "" if status == "all" else "WHERE d.status = ?"
+        params: list[object] = [admin["id"]]
+        if status != "all":
+            params.append(status)
+        rows = get_db().execute(
+            f"""
+            SELECT d.*, u.artist_name, u.watermark,
+                   (SELECT COUNT(*) FROM likes l WHERE l.design_id = d.id) AS like_count,
+                   (SELECT COUNT(*) FROM comments c WHERE c.design_id = d.id) AS comment_count,
+                   (SELECT COUNT(*) FROM reports r WHERE r.design_id = d.id AND r.status = 'open') AS open_report_count,
+                   EXISTS(SELECT 1 FROM likes mine WHERE mine.design_id = d.id AND mine.user_id = ?) AS liked_by_me
+            FROM designs d JOIN users u ON u.id = d.user_id
+            {condition}
+            ORDER BY d.created_at DESC
+            LIMIT 250
+            """,
+            tuple(params),
+        ).fetchall()
+        payloads = []
+        for row in rows:
+            payload = design_payload(row, row["liked_by_me"], include_status=True)
+            payload["openReportCount"] = row["open_report_count"]
+            payloads.append(payload)
+        return jsonify({"designs": payloads})
+
+    @app.get("/api/admin/users")
+    def admin_users():
+        require_admin(app)
+        rows = get_db().execute(
+            """
+            SELECT u.*,
+                   (SELECT COUNT(*) FROM designs d WHERE d.user_id = u.id) AS design_count,
+                   (SELECT COUNT(*) FROM reports r WHERE r.reporter_user_id = u.id) AS report_count
+            FROM users u ORDER BY u.created_at DESC LIMIT 250
+            """
+        ).fetchall()
+        return jsonify(
+            {
+                "users": [
+                    {
+                        **public_user(row),
+                        "designCount": row["design_count"],
+                        "reportCount": row["report_count"],
+                        "suspendedAt": row["suspended_at"],
+                        "suspensionReason": row["suspension_reason"],
+                    }
+                    for row in rows
+                ]
+            }
+        )
+
+    @app.get("/api/admin/designs/<design_id>/package")
+    def admin_design_package(design_id: str):
+        require_admin(app)
+        row = select_design(design_id, include_hidden=True)
+        if not row:
+            raise ApiError("Design not found.", 404)
+        path = Path(row["package_path"])
+        if not path.is_file():
+            raise ApiError("Design package is unavailable.", 404)
+        return send_file(
+            path,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{row['slug']}.zip",
+            conditional=True,
+        )
+
+    @app.get("/api/admin/actions")
+    def admin_actions():
+        require_admin(app)
+        rows = get_db().execute(
+            "SELECT * FROM moderation_actions ORDER BY created_at DESC LIMIT 250"
+        ).fetchall()
+        return jsonify(
+            {
+                "actions": [
+                    {
+                        "id": row["id"],
+                        "actorName": row["actor_name"],
+                        "action": row["action"],
+                        "targetType": row["target_type"],
+                        "targetId": row["target_id"],
+                        "reason": row["reason"],
+                        "metadata": json.loads(row["metadata_json"]),
+                        "createdAt": row["created_at"],
+                    }
+                    for row in rows
+                ]
+            }
+        )
+
+    @app.post("/api/admin/designs/<design_id>/status")
+    def moderate_design(design_id: str):
+        actor, actor_name, _is_agent = require_admin(app, csrf=True)
+        key = f"admin-action:{actor['id']}"
+        if not limiter.allow(key, limit=120, window_seconds=3600):
+            raise ApiError("Administrator action limit reached.", 429)
+        payload = request.get_json(silent=True) or {}
+        status = str(payload.get("status", ""))
+        if status not in DESIGN_STATUSES:
+            raise ApiError("Choose a valid design status.")
+        reason = clean_text(payload.get("reason"), minimum=3, maximum=500, field="Reason")
+        db = get_db()
+        design = db.execute("SELECT * FROM designs WHERE id = ?", (design_id,)).fetchone()
+        if not design:
+            raise ApiError("Design not found.", 404)
+        previous = design["status"]
+        db.execute("UPDATE designs SET status = ? WHERE id = ?", (status, design_id))
+        record_action(
+            db,
+            actor=actor,
+            actor_name=actor_name,
+            action="hide_design" if status == "hidden" else "restore_design",
+            target_type="design",
+            target_id=design_id,
+            reason=reason,
+            metadata={"previousStatus": previous, "newStatus": status},
+        )
+        db.commit()
+        row = select_design(design_id, actor["id"], include_hidden=True)
+        return jsonify({"design": design_payload(row, row["liked_by_me"], include_status=True)})
+
+    @app.post("/api/admin/users/<user_id>/status")
+    def moderate_user(user_id: str):
+        actor, actor_name, _is_agent = require_admin(app, csrf=True)
+        payload = request.get_json(silent=True) or {}
+        status = str(payload.get("status", ""))
+        if status not in USER_STATUSES:
+            raise ApiError("Choose a valid account status.")
+        reason = clean_text(payload.get("reason"), minimum=3, maximum=500, field="Reason")
+        db = get_db()
+        target = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not target:
+            raise ApiError("Account not found.", 404)
+        if target["id"] == actor["id"] and status == "suspended":
+            raise ApiError("Administrators cannot suspend their own account.")
+        if target["role"] == "admin" and status == "suspended":
+            active_admins = db.execute(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'"
+            ).fetchone()[0]
+            if active_admins <= 1:
+                raise ApiError("The last active administrator cannot be suspended.")
+        previous = target["status"]
+        suspended_at = utc_now() if status == "suspended" else None
+        suspension_reason = reason if status == "suspended" else None
+        db.execute(
+            "UPDATE users SET status = ?, suspended_at = ?, suspension_reason = ? WHERE id = ?",
+            (status, suspended_at, suspension_reason, user_id),
+        )
+        if status == "suspended":
+            db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        record_action(
+            db,
+            actor=actor,
+            actor_name=actor_name,
+            action="suspend_user" if status == "suspended" else "restore_user",
+            target_type="user",
+            target_id=user_id,
+            reason=reason,
+            metadata={"previousStatus": previous, "newStatus": status},
+        )
+        db.commit()
+        row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return jsonify({"user": public_user(row)})
+
+    @app.post("/api/admin/reports/<report_id>/resolve")
+    def resolve_report(report_id: str):
+        actor, actor_name, _is_agent = require_admin(app, csrf=True)
+        payload = request.get_json(silent=True) or {}
+        status = str(payload.get("status", ""))
+        if status not in {"resolved", "dismissed"}:
+            raise ApiError("Choose resolved or dismissed.")
+        resolution = clean_text(
+            payload.get("resolution"), minimum=3, maximum=500, field="Resolution"
+        )
+        db = get_db()
+        report = db.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        if not report:
+            raise ApiError("Report not found.", 404)
+        db.execute(
+            """
+            UPDATE reports
+            SET status = ?, resolution = ?, resolved_at = ?, resolved_by_user_id = ?
+            WHERE id = ?
+            """,
+            (status, resolution, utc_now(), actor["id"], report_id),
+        )
+        record_action(
+            db,
+            actor=actor,
+            actor_name=actor_name,
+            action="resolve_report" if status == "resolved" else "dismiss_report",
+            target_type="report",
+            target_id=report_id,
+            reason=resolution,
+            metadata={"designId": report["design_id"], "reportReason": report["reason"]},
+        )
+        db.commit()
+        return jsonify({"report": {"id": report_id, "status": status}})
 
     return app
 

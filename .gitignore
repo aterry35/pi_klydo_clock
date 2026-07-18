@@ -10,3 +10,4 @@ dist/
 *.heic
 *.pem
 .piclock-state.json
+Agent_admin/

@@ -11,6 +11,7 @@ WorkingDirectory=/opt/pi-clock-community/current
 Environment=PICLOCK_DATA_DIR=/var/lib/pi-clock-community
 Environment=PICLOCK_COOKIE_SECURE=1
 Environment=PICLOCK_ALLOWED_ORIGIN=https://designer.18-191-209-51.sslip.io
+EnvironmentFile=-/etc/piclock-community.env
 ExecStart=/opt/pi-clock-community/venv/bin/gunicorn --workers 1 --threads 4 --timeout 180 --bind 127.0.0.1:8080 community.app:app
 Restart=on-failure
 RestartSec=3

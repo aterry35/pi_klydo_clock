@@ -30,6 +30,7 @@ piclock-community-backup.timer     daily SQLite backup with 14-day retention
 /var/lib/pi-clock-community/       database, uploaded ZIPs/previews, and backups
 /opt/pi-clock-community/current/   active API release
 /var/www/pi-clock-designer/current active frontend release
+/etc/piclock-community.env       private agent token hash and agent identity
 ```
 
 Caddy serves the frontend and proxies `/api/*` to Gunicorn. Check the deployed
@@ -44,6 +45,15 @@ ssh -i Amazon_certificate/Terryt.pem ubuntu@18.191.209.51 \
 The EC2 instance is the only application host during the soft opening. Backups are
 local to that instance, so copy them off-host before treating the service as durable.
 See `COMMUNITY_SOFT_OPENING.md` for current limits and operating steps.
+
+Promote an existing account without handling its password:
+
+```bash
+cd /opt/pi-clock-community/current
+sudo -u piclock-community env PICLOCK_DATA_DIR=/var/lib/pi-clock-community \
+  /opt/pi-clock-community/venv/bin/python -m community.manage promote \
+  --email administrator@example.com
+```
 
 The private key is excluded by `*.pem` in the repository `.gitignore` and must never be
 copied into the web root or committed to Git.

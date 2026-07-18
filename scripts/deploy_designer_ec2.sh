@@ -46,6 +46,9 @@ fi
 if ! id piclock-community >/dev/null 2>&1; then
   sudo useradd --system --home /var/lib/pi-clock-community --shell /usr/sbin/nologin piclock-community
 fi
+if [ ! -f /etc/piclock-community.env ]; then
+  sudo install -o root -g piclock-community -m 0640 /dev/null /etc/piclock-community.env
+fi
 sudo install -d -m 0755 \"\$web_release\" \"\$app_release\"
 sudo tar --no-same-owner -xzf '$REMOTE_WEB_ARCHIVE' -C \"\$web_release\"
 sudo tar --no-same-owner -xzf '$REMOTE_APP_ARCHIVE' -C \"\$app_release\"
