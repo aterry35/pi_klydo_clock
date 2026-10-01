@@ -15,6 +15,7 @@ designer that exports installable clock-face packages.
 - Built-in designs plus SD-card and SCP design-folder discovery after every boot.
 - DS3231 RTC support, NTP synchronization, and SoftAP Wi-Fi provisioning.
 - Four-second dial hold opens an on-device network recovery panel.
+- Optional MQTT face selection by folder ID, with retained state and face catalogue.
 - React/Vite designer with deterministic H.264 export and package validation.
 - Public community gallery with artist profiles, watermarks, likes, comments, reports, and ZIP downloads.
 - Private moderation dashboard with hide/restore, artist suspension, and an audit history.
@@ -230,6 +231,10 @@ connection state, current IP address, nearby SSIDs, refresh, and close controls.
 programmatically (it uses PyAV to encode, so no system ffmpeg is required).
 
 ## Clock-wide JSON configuration
+
+See [`docs/MQTT_CONTROL.md`](docs/MQTT_CONTROL.md) for MQTT configuration, topics,
+and remote face selection. MQTT is disabled by default; device configuration
+enables it without changing any design folders.
 
 Device registration was previously split between code and systemd command-line
 arguments. It now comes from [`config/clock.json`](config/clock.json), which is

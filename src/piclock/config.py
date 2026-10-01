@@ -83,6 +83,18 @@ class NetworkConfig:
     max_visible_networks: int = 3
 
 
+@dataclass(frozen=True)
+class MqttConfig:
+    enabled: bool = False
+    host: str = ""
+    port: int = 1883
+    topic_prefix: str = "piclock/clock"
+    client_id: str = ""
+    username: str = ""
+    password_env: str = "PICLOCK_MQTT_PASSWORD"
+    tls: bool = False
+
+
 DEFAULT_DIAL_DIAMETERS = DiameterRange(400, 400, 500)
 DEFAULT_PENDULUM_DIAMETERS = DiameterRange(260, 300, 340)
 DEFAULT_ENCLOSURE = Enclosure(
@@ -128,6 +140,7 @@ class Config:
     design_assets: DesignAssets = DEFAULT_DESIGN_ASSETS
     enclosure: Enclosure = DEFAULT_ENCLOSURE
     network: NetworkConfig = field(default_factory=NetworkConfig)
+    mqtt: MqttConfig = field(default_factory=MqttConfig)
     config_paths: tuple[str, ...] = ()
 
     dim: bool = False
@@ -154,6 +167,22 @@ class Config:
         assets_data = _section(designs, "assets")
         enclosure_data = _section(data, "enclosure")
         network_data = _section(data, "network")
+        mqtt_data = _section(data, "mqtt")
+        prefix = _string(mqtt_data, "topic_prefix", "piclock/clock").strip("/")
+        if not prefix or any(c in prefix for c in ("+", "#", "\x00")):
+            raise ValueError("mqtt.topic_prefix must be a concrete MQTT topic")
+        mqtt = MqttConfig(
+            enabled=_boolean(mqtt_data, "enabled", False),
+            host=_optional_string(mqtt_data, "host"),
+            port=_integer(mqtt_data, "port", 1883, 1, 65535),
+            topic_prefix=prefix,
+            client_id=_optional_string(mqtt_data, "client_id"),
+            username=_optional_string(mqtt_data, "username"),
+            password_env=_string(mqtt_data, "password_env", "PICLOCK_MQTT_PASSWORD"),
+            tls=_boolean(mqtt_data, "tls", False),
+        )
+        if mqtt.enabled and not mqtt.host.strip():
+            raise ValueError("mqtt.host is required when MQTT is enabled")
 
         width = _integer(display, "width", 480, 100, 4096)
         height = _integer(display, "height", 800, 100, 4096)
@@ -291,6 +320,7 @@ class Config:
             design_assets=assets,
             enclosure=enclosure,
             network=network,
+            mqtt=mqtt,
         )
 
 
@@ -375,6 +405,13 @@ def _string(data: dict, key: str, default: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a non-empty string")
     return value
+
+
+def _optional_string(data: dict, key: str) -> str:
+    value = data.get(key, "")
+    if not isinstance(value, str) or "\x00" in value:
+        raise ValueError(f"{key} must be a string without null characters")
+    return value.strip()
 
 
 def _boolean(data: dict, key: str, default: bool) -> bool:

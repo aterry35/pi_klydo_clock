@@ -270,6 +270,16 @@ class DesignSet:
             self._save()
         return self.current
 
+    def select_id(self, face_id: str) -> bool:
+        """Select a stable folder ID without interpreting paths or indexes."""
+        for index, design in enumerate(self.designs):
+            if Path(design.path).name.casefold() == face_id.casefold():
+                self.index = index
+                self.mode = "manual"
+                self._save()
+                return True
+        return False
+
     def prev(self) -> Optional[Design]:
         if self.designs:
             self.mode = "manual"
@@ -301,8 +311,12 @@ class DesignSet:
         state = self._read_state()
         mode = str(state.get("mode") or self.mode)
         if mode == "manual":
+            folder = state.get("folder")
             selected = state.get("selected")
-            idx = self._find_index(str(selected)) if selected else None
+            idx = next((i for i, design in enumerate(self.designs)
+                        if folder and Path(design.path).name == folder), None)
+            if idx is None:
+                idx = self._find_index(str(selected)) if selected else None
             if idx is not None:
                 self.mode = "manual"
                 self.index = idx

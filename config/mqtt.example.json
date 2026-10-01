@@ -1,0 +1,12 @@
+{
+  "mqtt": {
+    "enabled": true,
+    "host": "mqtt.example.com",
+    "port": 1883,
+    "topic_prefix": "piclock/my-clock",
+    "client_id": "piclock-my-clock",
+    "username": "",
+    "password_env": "PICLOCK_MQTT_PASSWORD",
+    "tls": false
+  }
+}

@@ -21,6 +21,7 @@ from .layers.network_settings import NetworkSettingsPanel
 from .layers.pendulum import PendulumLayer
 from .layers.video import VideoLoop
 from .network import NetworkClient, NetworkController
+from .mqtt_control import MqttControl
 from .timesource import TimeSource
 
 
@@ -122,6 +123,8 @@ class ClockApp:
         self.top_circle = cfg.top
         self.bottom_circle = cfg.bottom
         self._load_current()
+        self.mqtt = MqttControl(cfg.mqtt)
+        self.mqtt.start()
 
     # --- display / rotation ---
     def _init_display(self) -> None:
@@ -224,6 +227,7 @@ class ClockApp:
         clock = pygame.time.Clock()
         while self.running:
             self.router.process(pygame.event.get())
+            self.mqtt.service(self.designs, self._load_current)
 
             t = time.monotonic()
             n = self.ts.now()
@@ -238,6 +242,7 @@ class ClockApp:
 
         if self.video is not None:
             self.video.close()
+        self.mqtt.close()
         if self.network_controller is not None:
             self.network_controller.close()
         pygame.quit()
